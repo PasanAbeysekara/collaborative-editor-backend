@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/your-username/collaborative-editor/internal/auth"
-	"github.com/your-username/collaborative-editor/internal/storage"
+	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
+	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
 

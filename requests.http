@@ -1,6 +1,8 @@
+@baseUrl = http://localhost:8081
+
 ### 1. Register a new user
 # This endpoint creates a new user in the in-memory store.
-POST http://localhost:8081/auth/register
+POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
@@ -14,7 +16,7 @@ Content-Type: application/json
 # This request will log in the user created above.
 # The @name directive allows us to reference this request's response later.
 # @name loginRequest
-POST http://localhost:8081/auth/login
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
@@ -29,5 +31,18 @@ Content-Type: application/json
 # in the Authorization header to access a protected endpoint.
 @token = {{loginRequest.response.body.token}}
 
-GET http://localhost:8081/api/me
+GET {{baseUrl}}/api/me
 Authorization: Bearer {{token}}
+
+###
+
+### 4. Create a new document
+@token = {{loginRequest.response.body.token}}
+
+POST {{baseUrl}}/api/documents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "My New Document"
+}

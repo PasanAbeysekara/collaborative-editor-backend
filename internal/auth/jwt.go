@@ -18,7 +18,6 @@ func init() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		log.Println("WARNING: JWT_SECRET environment variable not set. Using a default, insecure key. This is not safe for production.")
-		// This fallback is for development convenience only.
 		secret = "my_very_secret_key_that_is_long_and_secure"
 	}
 	jwtKey = []byte(secret)

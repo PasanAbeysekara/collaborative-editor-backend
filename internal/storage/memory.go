@@ -11,7 +11,7 @@ import (
 type User struct {
 	ID           string
 	Email        string
-	PasswordHash string 
+	PasswordHash string
 }
 
 type Document struct {
@@ -81,4 +81,20 @@ func (s *MemoryStore) GetUserByID(id string) (*User, error) {
 		return nil, fmt.Errorf("user not found")
 	}
 	return &user, nil
+}
+
+// -- Document Methods --
+
+func (s *MemoryStore) CreateDocument(title, ownerID string) (*Document, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	doc := Document{
+		ID:      uuid.NewString(),
+		Title:   title,
+		OwnerID: ownerID,
+	}
+	s.documents[doc.ID] = doc
+
+	return &doc, nil
 }

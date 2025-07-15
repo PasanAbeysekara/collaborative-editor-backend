@@ -11,7 +11,7 @@ import (
 )
 
 type UserHandler struct {
-	Store *storage.MemoryStore
+	Store storage.Store
 }
 
 type RegisterRequest struct {
@@ -74,7 +74,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.CreateJWT(user.ID, 24*time.Hour) 
+	token, err := auth.CreateJWT(user.ID, 24*time.Hour)
 	if err != nil {
 		http.Error(w, "Could not create token", http.StatusInternalServerError)
 		return

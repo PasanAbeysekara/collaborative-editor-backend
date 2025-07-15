@@ -12,11 +12,13 @@ import (
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/handlers"
+	"github.com/pasanAbeysekara/collaborative-editor/internal/realtime"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
 )
 
 func main() {
 	cfg := config.Load()
+	rtManager := realtime.NewManager()
 
 	// Establish a database connection pool
 	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
@@ -57,6 +59,9 @@ func main() {
 
 		// Document routes
 		r.Post("/api/documents", docHandler.CreateDocument)
+
+		// WebSocket endpoint
+		r.Get("/ws/doc/{documentID}", rtManager.ServeWS)
 
 		// Example protected route to test authentication
 		r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {

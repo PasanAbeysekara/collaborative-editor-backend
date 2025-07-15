@@ -28,7 +28,11 @@ type LoginResponse struct {
 	Token string `json:"token"`
 }
 
-// Register creates a new user.
+type UserResponse struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+}
+
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -42,11 +46,16 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp := UserResponse{
+		ID:    user.ID,
+		Email: user.Email,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user) // Don't send password hash back in a real app!
+	json.NewEncoder(w).Encode(resp)
 }
 
-// Login authenticates a user and returns a JWT.
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -65,8 +74,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create JWT token
-	token, err := auth.CreateJWT(user.ID, 24*time.Hour) // Token valid for 24 hours
+	token, err := auth.CreateJWT(user.ID, 24*time.Hour) 
 	if err != nil {
 		http.Error(w, "Could not create token", http.StatusInternalServerError)
 		return

@@ -1,0 +1,33 @@
+### 1. Register a new user
+# This endpoint creates a new user in the in-memory store.
+POST http://localhost:8081/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "a-very-strong-password"
+}
+
+###
+
+### 2. Login with the user to get a JWT
+# This request will log in the user created above.
+# The @name directive allows us to reference this request's response later.
+# @name loginRequest
+POST http://localhost:8081/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "a-very-strong-password"
+}
+
+###
+
+### 3. Access a protected route using the JWT
+# This request captures the token from the login response and uses it
+# in the Authorization header to access a protected endpoint.
+@token = {{loginRequest.response.body.token}}
+
+GET http://localhost:8081/api/me
+Authorization: Bearer {{token}}

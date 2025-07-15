@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -30,7 +31,8 @@ func main() {
 	}
 	log.Println("Successfully connected to the database!")
 
-	// store := storage.NewMemoryStore()
+	auth.Initialize(cfg)
+
 	var store storage.Store = storage.NewPostgresStore(pool)
 
 	userHandler := &handlers.UserHandler{Store: store}
@@ -69,9 +71,9 @@ func main() {
 		})
 	})
 
-	port := "8081"
-	log.Printf("Server starting on port %s", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	listenAddr := fmt.Sprintf(":%s", cfg.Port)
+	log.Printf("Starting server on %s...", listenAddr)
+	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

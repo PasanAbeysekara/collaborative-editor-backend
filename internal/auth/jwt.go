@@ -3,25 +3,15 @@ package auth
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
 )
 
 var jwtKey []byte
-
-func init() {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		log.Println("WARNING: JWT_SECRET environment variable not set. Using a default, insecure key. This is not safe for production.")
-		secret = "my_very_secret_key_that_is_long_and_secure"
-	}
-	jwtKey = []byte(secret)
-}
 
 type Claims struct {
 	UserID string `json:"userID"`
@@ -31,6 +21,10 @@ type Claims struct {
 type contextKey string
 
 const UserIDKey contextKey = "userID"
+
+func Initialize(cfg *config.Config) {
+	jwtKey = []byte(cfg.JWTSecret)
+}
 
 func CreateJWT(userID string, duration time.Duration) (string, error) {
 	expirationTime := time.Now().Add(duration)
@@ -45,7 +39,6 @@ func CreateJWT(userID string, duration time.Duration) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
-// JWTMiddleware validates the token and adds the userID to the request context.
 func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -58,7 +51,6 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		claims := &Claims{}
 
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			// Make sure that the token's signing method is the one you expect.
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
@@ -70,7 +62,6 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Add user ID to the context of the request
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

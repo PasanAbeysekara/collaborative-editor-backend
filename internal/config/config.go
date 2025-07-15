@@ -1,18 +1,22 @@
 package config
 
-import "os"
+import (
+	"log"
+
+	"github.com/kelseyhightower/envconfig"
+)
 
 type Config struct {
-	DatabaseURL string
+	Port        string `envconfig:"PORT" default:"8081"`
+	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
+	JWTSecret   string `envconfig:"JWT_SECRET" required:"true"`
 }
 
 func Load() *Config {
-	dbURL := os.Getenv("DB_URL")
-	if dbURL == "" {
-		dbURL = "postgres://user:password@host:port/db_name?sslmode=disable"
+	var cfg Config
+	err := envconfig.Process("", &cfg)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
-
-	return &Config{
-		DatabaseURL: dbURL,
-	}
+	return &cfg
 }

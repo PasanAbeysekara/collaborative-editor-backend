@@ -3,22 +3,24 @@ version: '3.8'
 services:
   api:
     build:
-      context: . # Use the Dockerfile in the current directory
+      context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8081:${PORT:-8081}"
     environment:
-      DB_URL: "postgres://username:password@host:port/database_name?sslmode=disable"
+      PORT: ${PORT:-8081}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      - db # Wait for the db service to be ready before starting
+      - db
 
   db:
     image: postgres:14-alpine
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: collaborative_editor_db
+      POSTGRES_USER: ${POSTGRES_USER:-user} # Also good practice for db credentials
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-collaborative_editor_db}
     ports:
       - "5433:5432"
     volumes:

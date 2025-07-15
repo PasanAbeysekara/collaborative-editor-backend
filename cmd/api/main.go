@@ -1,3 +1,5 @@
+// cmd/api/main.go
+
 package main
 
 import (
@@ -12,16 +14,13 @@ import (
 )
 
 func main() {
-	// Initialize storage
 	store := storage.NewMemoryStore()
 
-	// Initialize handlers
 	userHandler := &handlers.UserHandler{Store: store}
+	docHandler := &handlers.DocumentHandler{Store: store}
 
-	// Initialize router
 	r := chi.NewRouter()
 
-	// A good base middleware stack
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -37,10 +36,19 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.JWTMiddleware)
 
+		// Document routes
+		r.Post("/api/documents", docHandler.CreateDocument)
+
 		// Example protected route to test authentication
 		r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {
 			userID, _ := r.Context().Value(auth.UserIDKey).(string)
-			w.Write([]byte("Hello, authenticated user with ID: " + userID))
+			// For demonstration, let's also fetch the user details
+			user, err := store.GetUserByID(userID)
+			if err != nil {
+				http.Error(w, "User not found", http.StatusNotFound)
+				return
+			}
+			w.Write([]byte("Hello, authenticated user: " + user.Email))
 		})
 	})
 

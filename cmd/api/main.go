@@ -73,7 +73,7 @@ func main() {
 
 	listenAddr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("Starting server on %s...", listenAddr)
-	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
+	if err := http.ListenAndServe(":"+listenAddr, r); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

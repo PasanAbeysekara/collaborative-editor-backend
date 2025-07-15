@@ -9,7 +9,7 @@ import (
 )
 
 type DocumentHandler struct {
-	Store *storage.MemoryStore
+	Store storage.Store
 }
 
 type CreateDocumentRequest struct {

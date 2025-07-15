@@ -1,18 +1,37 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
+	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/handlers"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
 )
 
 func main() {
-	store := storage.NewMemoryStore()
+	cfg := config.Load()
+
+	// Establish a database connection pool
+	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v\n", err)
+	}
+	defer pool.Close()
+
+	// Ping the database to ensure connectivity
+	if err := pool.Ping(context.Background()); err != nil {
+		log.Fatalf("Database ping failed: %v\n", err)
+	}
+	log.Println("Successfully connected to the database!")
+
+	// store := storage.NewMemoryStore()
+	var store storage.Store = storage.NewPostgresStore(pool)
 
 	userHandler := &handlers.UserHandler{Store: store}
 	docHandler := &handlers.DocumentHandler{Store: store}

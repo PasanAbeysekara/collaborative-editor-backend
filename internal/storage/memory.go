@@ -18,6 +18,7 @@ type Document struct {
 	ID      string
 	Title   string
 	OwnerID string
+	Content string
 }
 
 type MemoryStore struct {

@@ -15,12 +15,10 @@ const (
 )
 
 type Client struct {
-	ID     string
-	hub    *Hub
-	conn   *websocket.Conn
-	sendOp chan *Operation
-	// The raw send channel is still needed for the initial state.
-	send chan []byte
+	ID   string
+	hub  *Hub
+	conn *websocket.Conn
+	send chan *ServerMessage
 }
 
 func (c *Client) readPump() {
@@ -34,6 +32,7 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
+			log.Printf("WebSocket read error for client %s: %v", c.ID, err)
 			break
 		}
 
@@ -66,25 +65,9 @@ func (c *Client) writePump() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			w.Write(message)
-
-			if err := w.Close(); err != nil {
-				return
-			}
-		case op, ok := <-c.sendOp:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-			// Marshal the operation to JSON and send it.
-			if err := c.conn.WriteJSON(op); err != nil {
-				log.Printf("Failed to write JSON op to client %s: %v", c.ID, err)
+			// Marshal the entire message struct to JSON.
+			if err := c.conn.WriteJSON(message); err != nil {
+				log.Printf("Failed to write JSON message to client %s: %v", c.ID, err)
 				return
 			}
 		case <-ticker.C:

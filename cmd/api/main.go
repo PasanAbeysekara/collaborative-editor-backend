@@ -53,6 +53,8 @@ func main() {
 
 		r.Post("/api/documents", docHandler.CreateDocument)
 
+		r.Post("/documents/{documentID}/share", docHandler.ShareDocument)
+
 		r.Get("/ws/doc/{documentID}", rtManager.ServeWS)
 
 		r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {

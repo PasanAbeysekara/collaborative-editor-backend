@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -70,21 +71,23 @@ func (s *PostgresStore) GetUserByID(id string) (*User, error) {
 
 func (s *PostgresStore) CheckDocumentPermission(documentID, userID string) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2)`
+	query := `
+        SELECT EXISTS (
+            SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2
+            UNION ALL
+            SELECT 1 FROM document_permissions WHERE document_id = $1 AND user_id = $2
+        )
+    `
 
 	err := s.pool.QueryRow(context.Background(), query, documentID, userID).Scan(&exists)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
 		return false, err
 	}
 
 	return exists, nil
-}
-
-func (s *PostgresStore) UpdateDocumentContent(documentID, content string) error {
-	query := `UPDATE documents SET content = $1 WHERE id = $2`
-
-	_, err := s.pool.Exec(context.Background(), query, content, documentID)
-	return err
 }
 
 func (s *PostgresStore) GetDocument(documentID string) (*Document, error) {
@@ -113,4 +116,42 @@ func (s *PostgresStore) UpdateDocument(documentID, content string, version int) 
 	}
 
 	return nil
+}
+
+func (s *PostgresStore) ShareDocument(documentID, ownerID, targetUserID, role string) error {
+
+	// Use a transaction to ensure atomicity:
+	// 1. Verify the person sharing is the owner.
+	// 2. Insert the permission.
+	tx, err := s.pool.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background()) // Rollback on error
+
+	// 1. Verify ownership.
+	var isOwner bool
+	ownerCheckQuery := `SELECT EXISTS(SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2)`
+	err = tx.QueryRow(context.Background(), ownerCheckQuery, documentID, ownerID).Scan(&isOwner)
+	if err != nil {
+		return err
+	}
+	if !isOwner {
+		return fmt.Errorf("permission denied: only the owner can share this document")
+	}
+
+	// 2. Insert the permission, ignoring conflicts if it already exists.
+	// "ON CONFLICT (document_id, user_id) DO NOTHING" is an "upsert" that prevents errors
+	// if you try to share with the same person twice.
+	insertQuery := `
+        INSERT INTO document_permissions (document_id, user_id, role)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (document_id, user_id) DO NOTHING
+    `
+	_, err = tx.Exec(context.Background(), insertQuery, documentID, targetUserID, role)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(context.Background()) // Commit the transaction
 }

@@ -49,9 +49,17 @@ func newHub(docID string, initialContent string, initialVersion int, m *Manager)
 
 func (h *Hub) applyOperation(op *Operation) {
 	if op.Type == OpInsert {
+		if op.Pos > len(h.content) {
+			op.Pos = len(h.content)
+		}
 		h.content = h.content[:op.Pos] + op.Text + h.content[op.Pos:]
 	} else if op.Type == OpDelete {
-		h.content = h.content[:op.Pos] + h.content[op.Pos+op.Len:]
+		if op.Pos+op.Len > len(h.content) {
+			op.Len = len(h.content) - op.Pos
+		}
+		if op.Pos < len(h.content) {
+			h.content = h.content[:op.Pos] + h.content[op.Pos+op.Len:]
+		}
 	}
 	h.version++
 }
@@ -62,9 +70,13 @@ func (h *Hub) run() {
 		case client := <-h.register:
 			h.clients[client.ID] = client
 			log.Printf("Client %s registered to hub for document %s", client.ID, h.documentID)
+			initialStateMsg := &ServerMessage{
+				Type:    MsgInitialState,
+				Content: h.content,
+			}
 
 			select {
-			case client.send <- []byte(h.content):
+			case client.send <- initialStateMsg:
 				log.Printf("Sent initial content to client %s", client.ID)
 			default:
 				log.Printf("Failed to send initial content to client %s, unregistering.", client.ID)
@@ -99,14 +111,20 @@ func (h *Hub) run() {
 			op.Version = h.version
 
 			log.Printf("Broadcasting op (v%d) to %d clients for doc %s", op.Version, len(h.clients), h.documentID)
+
+			opMsg := &ServerMessage{
+				Type: MsgOperation,
+				Op:   op,
+			}
+
 			for _, client := range h.clients {
 				if client.ID == payload.SourceClient.ID {
 					continue
 				}
 				select {
-				case client.sendOp <- op:
+				case client.send <- opMsg:
 				default:
-					close(client.sendOp)
+					close(client.send)
 					delete(h.clients, client.ID)
 				}
 			}

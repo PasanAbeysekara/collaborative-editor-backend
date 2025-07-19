@@ -46,3 +46,21 @@ Content-Type: application/json
 {
   "title": "My New Document"
 }
+
+###
+
+### 5. Share a document with another user
+@token = {{loginRequest.response.body.token}}
+
+POST {{baseUrl}}/documents/48c3b3bd-35e1-405e-ba75-d7336921bb74/share
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "test1@example.com",
+  "role": "editor"
+}
+
+###
+
+{ "type": "insert", "pos": 11, "text": " pasan", "version": 1 }

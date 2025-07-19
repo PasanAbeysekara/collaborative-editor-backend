@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
 )
@@ -14,6 +17,11 @@ type DocumentHandler struct {
 
 type CreateDocumentRequest struct {
 	Title string `json:"title"`
+}
+
+type ShareDocumentRequest struct {
+	TargetUserEmail string `json:"email"`
+	Role            string `json:"role"`
 }
 
 func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request) {
@@ -42,4 +50,40 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(doc)
+}
+
+func (h *DocumentHandler) ShareDocument(w http.ResponseWriter, r *http.Request) {
+	ownerID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Could not get user ID from context", http.StatusInternalServerError)
+		return
+	}
+
+	documentID := chi.URLParam(r, "documentID")
+
+	var req ShareDocumentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.Store.GetUserByEmail(req.TargetUserEmail)
+	if err != nil {
+		http.Error(w, "Target user not found", http.StatusNotFound)
+		return
+	}
+
+	err = h.Store.ShareDocument(documentID, ownerID, targetUser.ID, req.Role)
+	if err != nil {
+		if err.Error() == "permission denied: only the owner can share this document" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Failed to share document", http.StatusInternalServerError)
+		log.Printf("Error sharing document: %v", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Document %s shared with %s successfully", documentID, req.TargetUserEmail)
 }

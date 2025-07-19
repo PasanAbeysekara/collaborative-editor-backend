@@ -107,7 +107,7 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		ID:   uuid.NewString(),
 		hub:  hub,
 		conn: conn,
-		send: make(chan []byte, 256),
+		send: make(chan *ServerMessage, 256),
 	}
 	client.hub.register <- client
 

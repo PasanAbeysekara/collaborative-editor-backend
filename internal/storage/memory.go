@@ -20,7 +20,6 @@ type Document struct {
 	OwnerID string
 }
 
-// MemoryStore holds data in memory. Thread-safe.
 type MemoryStore struct {
 	mu        sync.RWMutex
 	users     map[string]User
@@ -33,8 +32,6 @@ func NewMemoryStore() *MemoryStore {
 		documents: make(map[string]Document),
 	}
 }
-
-// -- User Methods --
 
 func (s *MemoryStore) CreateUser(email, password string) (*User, error) {
 	s.mu.Lock()
@@ -82,8 +79,6 @@ func (s *MemoryStore) GetUserByID(id string) (*User, error) {
 	}
 	return &user, nil
 }
-
-// -- Document Methods --
 
 func (s *MemoryStore) CreateDocument(title, ownerID string) (*Document, error) {
 	s.mu.Lock()

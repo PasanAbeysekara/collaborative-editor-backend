@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,14 +20,12 @@ func main() {
 	cfg := config.Load()
 	rtManager := realtime.NewManager()
 
-	// Establish a database connection pool
 	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
 	}
 	defer pool.Close()
 
-	// Ping the database to ensure connectivity
 	if err := pool.Ping(context.Background()); err != nil {
 		log.Fatalf("Database ping failed: %v\n", err)
 	}
@@ -47,26 +45,20 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Public routes for authentication
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", userHandler.Register)
 		r.Post("/login", userHandler.Login)
 	})
 
-	// Protected routes - any route in here requires a valid JWT
 	r.Group(func(r chi.Router) {
 		r.Use(auth.JWTMiddleware)
 
-		// Document routes
 		r.Post("/api/documents", docHandler.CreateDocument)
 
-		// WebSocket endpoint
 		r.Get("/ws/doc/{documentID}", rtManager.ServeWS)
 
-		// Example protected route to test authentication
 		r.Get("/api/me", func(w http.ResponseWriter, r *http.Request) {
 			userID, _ := r.Context().Value(auth.UserIDKey).(string)
-			// For demonstration, let's also fetch the user details
 			user, err := store.GetUserByID(userID)
 			if err != nil {
 				http.Error(w, "User not found", http.StatusNotFound)
@@ -76,9 +68,9 @@ func main() {
 		})
 	})
 
-	listenAddr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("Starting server on %s...", listenAddr)
-	if err := http.ListenAndServe(":"+listenAddr, r); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	port := strings.TrimSpace(cfg.Port)
+	if !strings.HasPrefix(port, ":") {
+		port = ":" + port
 	}
+	log.Printf("Starting server on %s...", port)
 }

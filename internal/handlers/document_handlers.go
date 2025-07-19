@@ -16,9 +16,7 @@ type CreateDocumentRequest struct {
 	Title string `json:"title"`
 }
 
-// CreateDocument creates a new document for the authenticated user.
 func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request) {
-	// Retrieve userID from context (set by JWTMiddleware)
 	userID, ok := r.Context().Value(auth.UserIDKey).(string)
 	if !ok {
 		http.Error(w, "Could not get user ID from context", http.StatusInternalServerError)

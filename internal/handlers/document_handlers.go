@@ -53,7 +53,11 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *DocumentHandler) ShareDocument(w http.ResponseWriter, r *http.Request) {
-	ownerID := r.Context().Value(auth.UserIDKey).(string)
+	ownerID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Could not get user ID from context", http.StatusInternalServerError)
+		return
+	}
 
 	documentID := chi.URLParam(r, "documentID")
 

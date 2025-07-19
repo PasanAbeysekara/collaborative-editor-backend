@@ -46,10 +46,10 @@ func (m *Manager) getOrCreateHub(documentID string) (*Hub, error) {
 		return nil, err
 	}
 
-	hub := newHub(documentID, doc.Content, m)
+	hub := newHub(documentID, doc.Content, doc.Version, m)
 	m.hubs[documentID] = hub
 	go hub.run()
-	log.Printf("Created a new hub for document %s", documentID)
+	log.Printf("Created a new hub for document %s at version %d", documentID, doc.Version)
 	return hub, nil
 }
 

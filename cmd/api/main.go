@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -68,9 +69,10 @@ func main() {
 		})
 	})
 
-	listenAddr := fmt.Sprintf(":%s", cfg.Port)
+	port := strings.TrimSpace(cfg.Port)
+	listenAddr := fmt.Sprintf(":%s", port)
 	log.Printf("Starting server on %s...", listenAddr)
-	if err := http.ListenAndServe(":"+listenAddr, r); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	if err := http.ListenAndServe(listenAddr, r); err != nil {
+		log.Fatalf("Could not start server: %s\n", err)
 	}
 }

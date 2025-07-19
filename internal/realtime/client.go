@@ -8,26 +8,19 @@ import (
 )
 
 const (
-	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
-	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
-	// Send pings to peer with this period. Must be less than pongWait.
+	writeWait  = 10 * time.Second
+	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
 )
 
-// Client is a middleman between the websocket connection and the hub.
 type Client struct {
 	hub *Hub
 
-	// The websocket connection.
 	conn *websocket.Conn
 
-	// Buffered channel of outbound messages.
 	send chan []byte
 }
 
-// readPump pumps messages from the websocket connection to the hub.
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -44,13 +37,10 @@ func (c *Client) readPump() {
 			}
 			break
 		}
-		// In a real app, you'd deserialize this message and apply OT here.
-		// For now, we just broadcast it.
 		c.hub.broadcast <- message
 	}
 }
 
-// writePump pumps messages from the hub to the websocket connection.
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -63,7 +53,6 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -79,21 +80,37 @@ func (s *PostgresStore) CheckDocumentPermission(documentID, userID string) (bool
 	return exists, nil
 }
 
+func (s *PostgresStore) UpdateDocumentContent(documentID, content string) error {
+	query := `UPDATE documents SET content = $1 WHERE id = $2`
+
+	_, err := s.pool.Exec(context.Background(), query, content, documentID)
+	return err
+}
+
 func (s *PostgresStore) GetDocument(documentID string) (*Document, error) {
 	doc := &Document{}
-	// Note: We are now selecting the content as well.
-	query := `SELECT id, title, owner_id, content FROM documents WHERE id = $1`
+	query := `SELECT id, title, owner_id, content, version FROM documents WHERE id = $1`
 
-	err := s.pool.QueryRow(context.Background(), query, documentID).Scan(&doc.ID, &doc.Title, &doc.OwnerID, &doc.Content)
+	err := s.pool.QueryRow(context.Background(), query, documentID).Scan(
+		&doc.ID, &doc.Title, &doc.OwnerID, &doc.Content, &doc.Version,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return doc, nil
 }
 
-func (s *PostgresStore) UpdateDocumentContent(documentID, content string) error {
-	query := `UPDATE documents SET content = $1 WHERE id = $2`
+func (s *PostgresStore) UpdateDocument(documentID, content string, version int) error {
+	query := `UPDATE documents SET content = $1, version = $2 WHERE id = $3`
 
-	_, err := s.pool.Exec(context.Background(), query, content, documentID)
-	return err
+	result, err := s.pool.Exec(context.Background(), query, content, version, documentID)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
 }

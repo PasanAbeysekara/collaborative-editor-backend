@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
@@ -14,9 +15,11 @@ const (
 )
 
 type Client struct {
-	ID   string
-	hub  *Hub
-	conn *websocket.Conn
+	ID     string
+	hub    *Hub
+	conn   *websocket.Conn
+	sendOp chan *Operation
+	// The raw send channel is still needed for the initial state.
 	send chan []byte
 }
 
@@ -31,12 +34,20 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
-			}
 			break
 		}
-		c.hub.broadcast <- message
+
+		var op Operation
+		if err := json.Unmarshal(message, &op); err != nil {
+			log.Printf("Failed to unmarshal operation from client %s: %v", c.ID, err)
+			continue
+		}
+
+		payload := &OpPayload{
+			SourceClient: c,
+			Op:           &op,
+		}
+		c.hub.incomingOps <- payload
 	}
 }
 
@@ -63,6 +74,17 @@ func (c *Client) writePump() {
 			w.Write(message)
 
 			if err := w.Close(); err != nil {
+				return
+			}
+		case op, ok := <-c.sendOp:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			// Marshal the operation to JSON and send it.
+			if err := c.conn.WriteJSON(op); err != nil {
+				log.Printf("Failed to write JSON op to client %s: %v", c.ID, err)
 				return
 			}
 		case <-ticker.C:

@@ -9,4 +9,5 @@ type Store interface {
 	CreateDocument(title, ownerID string) (*Document, error)
 	GetDocument(documentID string) (*Document, error)
 	UpdateDocumentContent(documentID, content string) error
+	UpdateDocument(documentID, content string, version int) error
 }

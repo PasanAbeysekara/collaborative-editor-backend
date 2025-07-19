@@ -5,4 +5,5 @@ type Store interface {
 	GetUserByEmail(email string) (*User, error)
 	CreateDocument(title, ownerID string) (*Document, error)
 	GetUserByID(id string) (*User, error)
+	CheckDocumentPermission(documentID, userID string) (bool, error)
 }

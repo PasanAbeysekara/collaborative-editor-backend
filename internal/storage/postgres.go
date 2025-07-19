@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -65,4 +66,21 @@ func (s *PostgresStore) GetUserByID(id string) (*User, error) {
 	}
 
 	return user, nil
+}
+
+func (s *PostgresStore) CheckDocumentPermission(documentID, userID string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2)`
+
+	err := s.pool.QueryRow(context.Background(), query, documentID, userID).Scan(&exists)
+	if err != nil {
+
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return exists, nil
 }

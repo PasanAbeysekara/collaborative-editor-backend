@@ -66,3 +66,15 @@ func (s *PostgresStore) GetUserByID(id string) (*User, error) {
 
 	return user, nil
 }
+
+func (s *PostgresStore) CheckDocumentPermission(documentID, userID string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM documents WHERE id = $1 AND owner_id = $2)`
+
+	err := s.pool.QueryRow(context.Background(), query, documentID, userID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}

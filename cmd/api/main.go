@@ -18,22 +18,20 @@ import (
 
 func main() {
 	cfg := config.Load()
-	rtManager := realtime.NewManager()
-
 	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
 	}
 	defer pool.Close()
-
 	if err := pool.Ping(context.Background()); err != nil {
 		log.Fatalf("Database ping failed: %v\n", err)
 	}
 	log.Println("Successfully connected to the database!")
-
 	auth.Initialize(cfg)
 
 	var store storage.Store = storage.NewPostgresStore(pool)
+
+	rtManager := realtime.NewManager(store)
 
 	userHandler := &handlers.UserHandler{Store: store}
 	docHandler := &handlers.DocumentHandler{Store: store}
@@ -73,4 +71,8 @@ func main() {
 		port = ":" + port
 	}
 	log.Printf("Starting server on %s...", port)
+
+	if err := http.ListenAndServe(port, r); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
+	}
 }

@@ -31,19 +31,25 @@ func NewManager(store storage.Store) *Manager {
 	}
 }
 
-func (m *Manager) getOrCreateHub(documentID string) *Hub {
+func (m *Manager) getOrCreateHub(documentID string) (*Hub, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if hub, ok := m.hubs[documentID]; ok {
-		return hub
+		return hub, nil
 	}
 
-	hub := newHub(documentID, m)
+	doc, err := m.Store.GetDocument(documentID)
+	if err != nil {
+		log.Printf("Failed to get document %s from store: %v", documentID, err)
+		return nil, err
+	}
+
+	hub := newHub(documentID, doc.Content, m)
 	m.hubs[documentID] = hub
 	go hub.run()
 	log.Printf("Created a new hub for document %s", documentID)
-	return hub
+	return hub, nil
 }
 
 func (m *Manager) removeHub(hub *Hub) {
@@ -90,7 +96,11 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hub := m.getOrCreateHub(documentID)
+	hub, err := m.getOrCreateHub(documentID)
+	if err != nil {
+		http.Error(w, "Document not found or internal error", http.StatusNotFound)
+		return
+	}
 
 	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
 	client.hub.register <- client

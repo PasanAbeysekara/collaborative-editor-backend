@@ -15,8 +15,6 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }
 
-// -- User Methods --
-
 func (s *PostgresStore) CreateUser(email, password string) (*User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -45,8 +43,6 @@ func (s *PostgresStore) GetUserByEmail(email string) (*User, error) {
 
 	return user, nil
 }
-
-// -- Document Methods --
 
 func (s *PostgresStore) CreateDocument(title, ownerID string) (*Document, error) {
 	doc := &Document{Title: title, OwnerID: ownerID}

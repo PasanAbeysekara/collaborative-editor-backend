@@ -18,7 +18,7 @@ services:
     image: postgres:14-alpine
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-user} # Also good practice for db credentials
+      POSTGRES_USER: ${POSTGRES_USER:-user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-collaborative_editor_db}
     ports:

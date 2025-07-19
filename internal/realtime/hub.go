@@ -1,6 +1,13 @@
 package realtime
 
-import "log"
+import (
+	"log"
+	"time"
+)
+
+const (
+	saveDebounceDuration = 3 * time.Second
+)
 
 type Hub struct {
 	documentID string
@@ -14,11 +21,16 @@ type Hub struct {
 	unregister chan *Client
 
 	manager *Manager
+
+	content string
+	// A timer to debounce database save operations.
+	saveTimer *time.Timer
 }
 
-func newHub(docID string, m *Manager) *Hub {
+func newHub(docID string, initialContent string, m *Manager) *Hub {
 	return &Hub{
 		documentID: docID,
+		content:    initialContent,
 		clients:    make(map[*Client]bool),
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
@@ -48,6 +60,8 @@ func (h *Hub) run() {
 			}
 
 		case message := <-h.broadcast:
+			h.content = string(message)
+
 			for client := range h.clients {
 				select {
 				case client.send <- message:
@@ -56,6 +70,18 @@ func (h *Hub) run() {
 					delete(h.clients, client)
 				}
 			}
+
+			if h.saveTimer != nil {
+				h.saveTimer.Stop()
+			}
+
+			h.saveTimer = time.AfterFunc(saveDebounceDuration, func() {
+				log.Printf("Debounce timer fired. Saving document %s to DB.", h.documentID)
+				err := h.manager.Store.UpdateDocumentContent(h.documentID, h.content)
+				if err != nil {
+					log.Printf("ERROR: Failed to save document %s: %v", h.documentID, err)
+				}
+			})
 		}
 	}
 }

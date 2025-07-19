@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -70,9 +69,8 @@ func main() {
 	})
 
 	port := strings.TrimSpace(cfg.Port)
-	listenAddr := fmt.Sprintf(":%s", port)
-	log.Printf("Starting server on %s...", listenAddr)
-	if err := http.ListenAndServe(listenAddr, r); err != nil {
-		log.Fatalf("Could not start server: %s\n", err)
+	if !strings.HasPrefix(port, ":") {
+		port = ":" + port
 	}
+	log.Printf("Starting server on %s...", port)
 }

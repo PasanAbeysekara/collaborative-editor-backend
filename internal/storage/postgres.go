@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -74,11 +73,6 @@ func (s *PostgresStore) CheckDocumentPermission(documentID, userID string) (bool
 
 	err := s.pool.QueryRow(context.Background(), query, documentID, userID).Scan(&exists)
 	if err != nil {
-
-		if err == pgx.ErrNoRows {
-			return false, nil
-		}
-
 		return false, err
 	}
 

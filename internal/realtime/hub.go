@@ -12,7 +12,7 @@ const (
 type Hub struct {
 	documentID string
 
-	clients map[*Client]bool
+	clients map[string]*Client
 
 	broadcast chan []byte
 
@@ -23,7 +23,7 @@ type Hub struct {
 	manager *Manager
 
 	content string
-	// A timer to debounce database save operations.
+
 	saveTimer *time.Timer
 }
 
@@ -31,7 +31,7 @@ func newHub(docID string, initialContent string, m *Manager) *Hub {
 	return &Hub{
 		documentID: docID,
 		content:    initialContent,
-		clients:    make(map[*Client]bool),
+		clients:    make(map[string]*Client),
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
@@ -43,14 +43,23 @@ func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client] = true
-			log.Printf("Client registered to hub for document %s", h.documentID)
+			h.clients[client.ID] = client
+			log.Printf("Client %s registered to hub for document %s", client.ID, h.documentID)
+
+			select {
+			case client.send <- []byte(h.content):
+				log.Printf("Sent initial content to client %s", client.ID)
+			default:
+				log.Printf("Failed to send initial content to client %s, unregistering.", client.ID)
+				delete(h.clients, client.ID)
+				close(client.send)
+			}
 
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+			if _, ok := h.clients[client.ID]; ok {
+				delete(h.clients, client.ID)
 				close(client.send)
-				log.Printf("Client unregistered from hub for document %s", h.documentID)
+				log.Printf("Client %s unregistered from hub for document %s", client.ID, h.documentID)
 
 				if len(h.clients) == 0 {
 					h.manager.removeHub(h)
@@ -62,12 +71,12 @@ func (h *Hub) run() {
 		case message := <-h.broadcast:
 			h.content = string(message)
 
-			for client := range h.clients {
+			for _, client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
 					close(client.send)
-					delete(h.clients, client)
+					delete(h.clients, client.ID)
 				}
 			}
 

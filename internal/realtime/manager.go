@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
@@ -102,11 +103,16 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{
+		ID:   uuid.NewString(),
+		hub:  hub,
+		conn: conn,
+		send: make(chan []byte, 256),
+	}
 	client.hub.register <- client
 
 	go client.writePump()
 	go client.readPump()
 
-	log.Printf("Client for user %s connected to hub for document %s", userID, documentID)
+	log.Printf("Client %s (for user %s) connected to hub for document %s", client.ID, userID, documentID)
 }

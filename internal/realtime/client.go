@@ -14,10 +14,9 @@ const (
 )
 
 type Client struct {
-	hub *Hub
-
+	ID   string
+	hub  *Hub
 	conn *websocket.Conn
-
 	send chan []byte
 }
 

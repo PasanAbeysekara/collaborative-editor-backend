@@ -14,6 +14,7 @@ import (
 	"github.com/pasanAbeysekara/collaborative-editor/internal/handlers"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/realtime"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -27,11 +28,23 @@ func main() {
 		log.Fatalf("Database ping failed: %v\n", err)
 	}
 	log.Println("Successfully connected to the database!")
+
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("Could not parse Redis URL: %v", err)
+	}
+	redisClient := redis.NewClient(redisOpts)
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("Redis ping failed: %v", err)
+	}
+	log.Println("Successfully connected to Redis!")
+
 	auth.Initialize(cfg)
 
 	var store storage.Store = storage.NewPostgresStore(pool)
+	var cache storage.Cache = storage.NewRedisCache(redisClient)
 
-	rtManager := realtime.NewManager(store)
+	rtManager := realtime.NewManager(store, cache)
 
 	userHandler := &handlers.UserHandler{Store: store}
 	docHandler := &handlers.DocumentHandler{Store: store}
@@ -51,7 +64,7 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.JWTMiddleware)
 
-		r.Post("/api/documents", docHandler.CreateDocument)
+		r.Post("/documents", docHandler.CreateDocument)
 
 		r.Post("/documents/{documentID}/share", docHandler.ShareDocument)
 
@@ -73,7 +86,6 @@ func main() {
 		port = ":" + port
 	}
 	log.Printf("Starting server on %s...", port)
-
 	if err := http.ListenAndServe(port, r); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}

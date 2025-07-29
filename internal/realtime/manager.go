@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
+	"github.com/redis/go-redis/v9"
 )
 
 var upgrader = websocket.Upgrader{
@@ -19,16 +21,17 @@ var upgrader = websocket.Upgrader{
 }
 
 type Manager struct {
-	hubs map[string]*Hub
-	mu   sync.RWMutex
-
+	hubs  map[string]*Hub
+	mu    sync.RWMutex
 	Store storage.Store
+	Cache storage.Cache
 }
 
-func NewManager(store storage.Store) *Manager {
+func NewManager(store storage.Store, cache storage.Cache) *Manager {
 	return &Manager{
 		hubs:  make(map[string]*Hub),
 		Store: store,
+		Cache: cache,
 	}
 }
 
@@ -40,16 +43,33 @@ func (m *Manager) getOrCreateHub(documentID string) (*Hub, error) {
 		return hub, nil
 	}
 
-	doc, err := m.Store.GetDocument(documentID)
-	if err != nil {
-		log.Printf("Failed to get document %s from store: %v", documentID, err)
+	content, version, err := m.Cache.GetDocumentState(context.Background(), documentID)
+	if err == nil {
+		log.Printf("Cache hit for doc %s. Re-creating hub from Redis state.", documentID)
+	} else if err == redis.Nil {
+		log.Printf("Cache miss for doc %s. Loading from PostgreSQL.", documentID)
+		doc, err := m.Store.GetDocument(documentID)
+		if err != nil {
+			return nil, err
+		}
+		content = doc.Content
+		version = doc.Version
+
+		if err := m.Cache.SetDocumentState(context.Background(), documentID, content, version); err != nil {
+			log.Printf("WARN: Failed to prime cache for doc %s: %v", documentID, err)
+		}
+	} else {
 		return nil, err
 	}
 
-	hub := newHub(documentID, doc.Content, doc.Version, m)
+	// =========================================================
+	// === THIS IS THE LINE THAT WAS FIXED =====================
+	// =========================================================
+	hub := newHub(documentID, content, version, m) // Pass the manager itself, not its fields.
+
 	m.hubs[documentID] = hub
 	go hub.run()
-	log.Printf("Created a new hub for document %s at version %d", documentID, doc.Version)
+	log.Printf("Hub created for document %s at version %d", documentID, version)
 	return hub, nil
 }
 
@@ -89,17 +109,15 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Authorization successful for user %s on document %s. Upgrading connection...", userID, documentID)
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("Failed to upgrade connection:", err)
-		return
-	}
-
 	hub, err := m.getOrCreateHub(documentID)
 	if err != nil {
 		http.Error(w, "Document not found or internal error", http.StatusNotFound)
+		return
+	}
+	
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Failed to upgrade connection:", err)
 		return
 	}
 

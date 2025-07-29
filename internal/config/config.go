@@ -1,22 +1,23 @@
 package config
 
 import (
-	"log"
+    "log"
 
-	"github.com/kelseyhightower/envconfig"
+    "github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
-	Port        string `envconfig:"PORT" default:"8081"`
-	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
-	JWTSecret   string `envconfig:"JWT_SECRET" required:"true"`
+    Port        string `envconfig:"PORT" default:"8080"`
+    DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
+    JWTSecret   string `envconfig:"JWT_SECRET" required:"true"`
+    RedisURL    string `envconfig:"REDIS_URL" required:"true"` // Add this
 }
 
 func Load() *Config {
-	var cfg Config
-	err := envconfig.Process("", &cfg)
-	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
-	}
-	return &cfg
+    var cfg Config
+    err := envconfig.Process("", &cfg)
+    if err != nil {
+        log.Fatalf("Failed to load configuration: %v", err)
+    }
+    return &cfg
 }

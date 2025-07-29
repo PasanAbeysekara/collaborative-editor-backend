@@ -11,3 +11,16 @@ services:
       PORT: ${PORT:-8081}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      - redis
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

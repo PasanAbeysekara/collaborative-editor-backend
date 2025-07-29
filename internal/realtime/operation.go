@@ -19,6 +19,7 @@ type ServerMessage struct {
 const (
 	OpInsert OpType = "insert"
 	OpDelete OpType = "delete"
+	OpUndo   OpType = "undo"
 )
 
 type Operation struct {

@@ -3,6 +3,8 @@ package realtime
 import (
 	"context"
 	"log"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -21,18 +23,38 @@ var upgrader = websocket.Upgrader{
 }
 
 type Manager struct {
-	hubs  map[string]*Hub
-	mu    sync.RWMutex
-	Store storage.Store
-	Cache storage.Cache
+	hubs               map[string]*Hub
+	mu                 sync.RWMutex
+	Cache              storage.Cache
+	documentServiceURL string
 }
 
-func NewManager(store storage.Store, cache storage.Cache) *Manager {
+func NewManager(cache storage.Cache, docServiceURL string) *Manager {
 	return &Manager{
-		hubs:  make(map[string]*Hub),
-		Store: store,
-		Cache: cache,
+		hubs:               make(map[string]*Hub),
+		Cache:              cache,
+		documentServiceURL: docServiceURL,
 	}
+}
+
+func (m *Manager) getDocumentFromService(documentID string) (*storage.Document, error) {
+    url := fmt.Sprintf("%s/documents/%s", m.documentServiceURL, documentID)
+    resp, err := http.Get(url)
+    if err != nil {
+        return nil, fmt.Errorf("failed to call document service: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("document service returned status %d", resp.StatusCode)
+    }
+
+    var doc storage.Document
+    if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+        return nil, fmt.Errorf("failed to decode document from service: %w", err)
+    }
+
+    return &doc, nil
 }
 
 func (m *Manager) getOrCreateHub(documentID string) (*Hub, error) {
@@ -48,7 +70,7 @@ func (m *Manager) getOrCreateHub(documentID string) (*Hub, error) {
 		log.Printf("Cache hit for doc %s. Re-creating hub from Redis state.", documentID)
 	} else if err == redis.Nil {
 		log.Printf("Cache miss for doc %s. Loading from PostgreSQL.", documentID)
-		doc, err := m.Store.GetDocument(documentID)
+		doc, err := m.getDocumentFromService(documentID)
 		if err != nil {
 			return nil, err
 		}
@@ -62,10 +84,7 @@ func (m *Manager) getOrCreateHub(documentID string) (*Hub, error) {
 		return nil, err
 	}
 
-	// =========================================================
-	// === THIS IS THE LINE THAT WAS FIXED =====================
-	// =========================================================
-	hub := newHub(documentID, content, version, m) // Pass the manager itself, not its fields.
+	hub := newHub(documentID, content, version, m)
 
 	m.hubs[documentID] = hub
 	go hub.run()
@@ -96,18 +115,17 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hasPermission, err := m.Store.CheckDocumentPermission(documentID, userID)
-	if err != nil {
-		log.Printf("Error checking document permission for doc %s, user %s: %v", documentID, userID, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	hasPermission, err := m.checkPermissions(documentID, userID)
+    if err != nil {
+        log.Printf("Error calling document-service for permissions: %v", err)
+        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+        return
+    }
 
 	if !hasPermission {
-		log.Printf("Forbidden: User %s has no permission for document %s", userID, documentID)
-		http.Error(w, "Forbidden: You do not have access to this document", http.StatusForbidden)
-		return
-	}
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return
+    }
 
 	hub, err := m.getOrCreateHub(documentID)
 	if err != nil {
@@ -133,4 +151,15 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 	go client.readPump()
 
 	log.Printf("Client %s (for user %s) connected to hub for document %s", client.ID, userID, documentID)
+}
+
+func (m *Manager) checkPermissions(documentID, userID string) (bool, error) {
+    url := fmt.Sprintf("%s/documents/%s/permissions/%s", m.documentServiceURL, documentID, userID)
+    resp, err := http.Get(url)
+    if err != nil {
+        return false, err
+    }
+    defer resp.Body.Close()
+
+    return resp.StatusCode == http.StatusOK, nil
 }

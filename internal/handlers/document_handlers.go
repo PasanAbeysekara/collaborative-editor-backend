@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
 )
@@ -22,6 +23,11 @@ type CreateDocumentRequest struct {
 type ShareDocumentRequest struct {
 	TargetUserEmail string `json:"email"`
 	Role            string `json:"role"`
+}
+
+type UpdateDocumentRequest struct {
+	Content string `json:"content"`
+	Version int    `json:"version"`
 }
 
 func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request) {
@@ -87,3 +93,56 @@ func (h *DocumentHandler) ShareDocument(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Document %s shared with %s successfully", documentID, req.TargetUserEmail)
 }
+
+func (h *DocumentHandler) CheckPermission(w http.ResponseWriter, r *http.Request) {
+	userID := chi.URLParam(r, "userID")
+	documentID := chi.URLParam(r, "documentID")
+
+	hasPermission, err := h.Store.CheckDocumentPermission(documentID, userID)
+	if err != nil {
+		http.Error(w, "Internal check failed", http.StatusInternalServerError)
+		return
+	}
+
+	if !hasPermission {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *DocumentHandler) GetDocument(w http.ResponseWriter, r *http.Request) {
+    documentID := chi.URLParam(r, "documentID")
+
+    doc, err := h.Store.GetDocument(documentID)
+    if err != nil {
+        if err == pgx.ErrNoRows {
+            http.Error(w, "Document not found", http.StatusNotFound)
+            return
+        }
+        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+        return
+    }
+
+	// Return the document details as JSON.
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(doc)
+}
+
+func (h *DocumentHandler) SaveDocument(w http.ResponseWriter, r *http.Request) {
+      documentID := chi.URLParam(r, "documentID")
+      
+      var req UpdateDocumentRequest
+      if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+          http.Error(w, "Invalid request body", http.StatusBadRequest)
+          return
+      }
+
+      err := h.Store.UpdateDocument(documentID, req.Content, req.Version)
+      if err != nil {
+          http.Error(w, "Failed to update document", http.StatusInternalServerError)
+          return
+      }
+      w.WriteHeader(http.StatusOK)
+  }

@@ -34,5 +34,5 @@ func main() {
     r.Post("/auth/login", userHandler.Login)
 
     log.Printf("Starting user-service on port %s...\n", cfg.Port)
-    http.ListenAndServe(cfg.Port, r)
+    http.ListenAndServe(":"+cfg.Port, r)
 }

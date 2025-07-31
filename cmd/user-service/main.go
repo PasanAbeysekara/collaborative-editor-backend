@@ -33,6 +33,6 @@ func main() {
     r.Post("/auth/register", userHandler.Register)
     r.Post("/auth/login", userHandler.Login)
 
-    log.Println("Starting user-service on port :8080...")
-    http.ListenAndServe(":8080", r)
+    log.Printf("Starting user-service on port %s...\n", cfg.Port)
+    http.ListenAndServe(cfg.Port, r)
 }

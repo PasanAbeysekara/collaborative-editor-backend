@@ -7,5 +7,5 @@ RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o /app/server ./cmd/realtime-servic
 
 FROM alpine:latest
 COPY --from=builder /app/server /server
-EXPOSE 8081
+EXPOSE 8080
 ENTRYPOINT ["/server"]

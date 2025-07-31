@@ -36,6 +36,11 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: REDIS_URL
+        - name: DOCUMENT_SERVICE_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DOCUMENT_SERVICE_URL
 ---
 apiVersion: v1
 kind: Service

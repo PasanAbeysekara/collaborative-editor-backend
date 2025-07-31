@@ -7,7 +7,7 @@ import (
 )
 
 type Config struct {
-    Port        string `envconfig:"PORT" default:"8081"`
+    Port        string `envconfig:"PORT" default:"8080"`
     DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
     JWTSecret   string `envconfig:"JWT_SECRET" required:"true"`
     RedisURL    string `envconfig:"REDIS_URL" required:"true"`

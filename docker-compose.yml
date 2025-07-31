@@ -5,7 +5,7 @@ services:
     volumes:
       - ./cmd/gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "8081:80" # Expose NGINX on port 8081
+      - "8080:80" # Expose NGINX on port 8080
     depends_on:
       - user-service
       - document-service
@@ -19,7 +19,7 @@ services:
     env_file:
       - .env
     environment:
-      PORT: "8081"
+      PORT: "8080"
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
 
@@ -31,7 +31,7 @@ services:
     env_file:
       - .env
     environment:
-      PORT: "8081"
+      PORT: "8080"
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
     
@@ -44,11 +44,11 @@ services:
     env_file:
       - .env
     environment:
-      PORT: "8081"
+      PORT: "8080"
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
       # NEW: URL to the internal document-service for auth checks
-      DOCUMENT_SERVICE_URL: "http://document-service:8081"
+      DOCUMENT_SERVICE_URL: "http://document-service:8080"
     depends_on:
       - redis
       - document-service

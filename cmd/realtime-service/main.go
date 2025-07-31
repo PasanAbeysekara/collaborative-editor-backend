@@ -33,6 +33,6 @@ func main() {
         r.Get("/ws/doc/{documentID}", rtManager.ServeWS)
     })
 
-    log.Println("Starting realtime-service on port :8081...")
-    http.ListenAndServe(":8081", r)
+    log.Println("Starting realtime-service on port :8080...")
+    http.ListenAndServe(":8080", r)
 }

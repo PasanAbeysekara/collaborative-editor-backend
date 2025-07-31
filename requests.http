@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:8081
+@baseUrl = http://localhost:8080
 
 ### 1. Register a new user
 # This endpoint creates a new user in the in-memory store.

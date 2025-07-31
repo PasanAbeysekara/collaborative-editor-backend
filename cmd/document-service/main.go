@@ -41,6 +41,6 @@ func main() {
         r.Post("/documents/{documentID}/share", docHandler.ShareDocument)
     })
 
-    log.Println("Starting document-service on port :8081...")
-    http.ListenAndServe(":8081", r)
+    log.Println("Starting document-service on port :8080...")
+    http.ListenAndServe(":8080", r)
 }

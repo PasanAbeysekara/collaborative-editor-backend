@@ -1,0 +1,16 @@
+# This is the top-level key for the Loki configuration.
+loki:
+  # This storage block is required by the chart's validation.
+  storage:
+    type: 'filesystem'
+    bucketNames:
+      chunks: "loki-chunks" # This value is required but not used by filesystem storage
+      ruler: "loki-ruler"    # This value is required but not used by filesystem storage
+      admin: "loki-admin"    # This value is required but not used by filesystem storage
+  
+  # This tells the chart to inject a default schema for testing.
+  useTestSchema: true
+
+# This section is for Promtail, the log collector.
+promtail:
+  enabled: true

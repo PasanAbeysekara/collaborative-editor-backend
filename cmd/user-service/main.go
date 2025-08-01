@@ -9,6 +9,7 @@ import (
     "github.com/go-chi/chi/v5"
     "github.com/go-chi/chi/v5/middleware"
     "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
     "github.com/pasanAbeysekara/collaborative-editor/internal/auth"
     "github.com/pasanAbeysekara/collaborative-editor/internal/config"
     "github.com/pasanAbeysekara/collaborative-editor/internal/handlers"
@@ -30,6 +31,8 @@ func main() {
     r.Use(middleware.Logger)
     r.Use(middleware.Recoverer)
 
+    r.Handle("/metrics", promhttp.Handler())
+    
     r.Post("/auth/register", userHandler.Register)
     r.Post("/auth/login", userHandler.Login)
 

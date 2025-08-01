@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/realtime"
@@ -27,6 +28,8 @@ func main() {
     r := chi.NewRouter()
     r.Use(middleware.Logger)
     r.Use(middleware.Recoverer)
+
+    r.Handle("/metrics", promhttp.Handler())
 
     r.Group(func(r chi.Router) {
         r.Use(auth.JWTMiddleware)

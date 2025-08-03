@@ -187,7 +187,8 @@ echo "------------------------------------------------------------------"
 
 **3. Manual WebSocket Test**
 
- Open two terminals. In Terminal 1, connect as User A. In Terminal 2, connect as User B. (Requires `wscat` and `jq` to be installed).
+*   **Test Real-Time Editing:**
+    Open two terminals. In Terminal 1, connect as User A. In Terminal 2, connect as User B. (Requires `wscat` and `jq` to be installed).
 
     *   **Terminal 1 (User A):**
         ```sh

@@ -62,7 +62,7 @@ minikube addons enable ingress
 
 This project uses an `.env` file for local configuration. Create a file named `.env` in the project root by copying the example.
 ```sh
-cp .env.example .env
+cp .env.local .env
 ```
 Review the `.env` file and ensure the values are suitable for your local setup. The defaults should work fine.
 

@@ -27,7 +27,11 @@ The system is composed of three core microservices, a database, a cache, and an 
 -   **Redis:** High-speed cache for "hot" document sessions and the operation stack for undo functionality.
 -   **NGINX Ingress:** Acts as the API Gateway, routing all incoming traffic to the appropriate microservice.
 
-![Architecture Diagram](https-placeholder-for-diagram.png) <!-- It's highly recommended to add a simple architecture diagram here -->
+### Architecture Diagram
+<img width="5007" height="1998" alt="image (9)" src="https://github.com/user-attachments/assets/31074e3f-1713-4652-b70d-6e7de1ab800a" />
+
+### Sequence Diagram
+<img width="5267" height="4086" alt="image (7)" src="https://github.com/user-attachments/assets/68647ddc-d59d-46d3-ad6b-c515848794f2" />
 
 ## Getting Started
 

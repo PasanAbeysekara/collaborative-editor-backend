@@ -1,104 +1,129 @@
-# Collaborative Real-time Document Editor (Backend)
+# Real-Time Collaborative Document Editor (Backend)
 
-![Go Version](https://img.shields.io/badge/Go-1.19+-00ADD8.svg)
-![Docker](https://img.shields.io/badge/Docker-20.10+-2496ED.svg)
+![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-1.25+-326CE5.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](#) 
-This project is the backend for a cloud-native, real-time collaborative document editor, similar to Google Docs. It is built using a microservice architecture in Go and deployed on Kubernetes.
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](#) <!-- Placeholder -->
+
+This repository contains the backend for a cloud-native, real-time collaborative document editor, inspired by applications like Google Docs. It is engineered with a **production-grade microservice architecture** using Go, containerized with Docker, and orchestrated with **Kubernetes**. The system provides a robust foundation for building scalable, resilient, and observable distributed systems.
+
+## Core Concepts & Architectural Philosophy
+
+This project serves as a practical, hands-on implementation of modern cloud-native principles.
+
+*   **Microservice Architecture:** The application is decomposed into independent services (`user`, `document`, `realtime`), each with a distinct business capability. This allows for independent development, deployment, and scaling.
+*   **Container Orchestration:** We've moved beyond `docker-compose` to **Kubernetes** to manage the application's lifecycle. This provides production-level features like self-healing, automated rollouts, and declarative configuration.
+*   **Declarative Infrastructure:** All application components, from the services themselves to the databases and networking rules, are defined as code in Kubernetes YAML manifests.
+*   **Observability as a First-Class Citizen:** The system is built with a pre-configured, powerful observability stack (**Prometheus, Loki, Grafana**). This provides immediate, centralized insight into the health, performance, and behavior of all services, which is non-negotiable in a microservice environment.
+*   **API Gateway Pattern:** An **NGINX Ingress Controller** acts as the single, unified entry point for all external traffic, handling routing, SSL termination (in a real production setup), and abstracting the internal service topology from the outside world.
 
 ## Features
 
--   **User Authentication:** Secure user registration and login via JWT.
--   **Document Management:** Create documents and share them with other users.
--   **Real-Time Collaboration:** WebSocket-based, operation-driven synchronization for multi-user editing.
--   **Undo Functionality:** Session-based undo support using a Redis-backed operation stack.
--   **Microservice Architecture:** Services are independently deployable, scalable, and fault-tolerant.
--   **Cloud-Native Deployment:** Runs on Kubernetes with a production-ready setup.
--   **Observability:** Centralized logging and metrics with Prometheus, Loki, and Grafana.
+*   **User Authentication**: Secure user registration and login using JWT.
+*   **Document Management**: Create and manage documents, with ownership assigned to users.
+*   **Secure Document Sharing**: Owners can securely share documents with other registered users via an access control list.
+*   **Real-time Collaboration Engine**:
+    *   Stateful WebSocket connections managed on a per-document basis.
+    *   Operations-based synchronization (`insert`/`delete`/`undo` operations).
+    *   Sequential consistency enforced by a document versioning system.
+    *   High-speed session state management and operation history using **Redis**.
+*   **Cloud-Native Deployment**: Fully orchestrated with **Kubernetes**, including a production-style Ingress for traffic management.
+*   **Full Observability Stack**: Centralized logging and metrics out-of-the-box with **Prometheus, Loki, and Grafana**.
 
-## Architecture Overview
-
-The system is composed of three core microservices, a database, a cache, and an API gateway, all running on Kubernetes.
-
--   **User Service:** Manages user identity, registration, and authentication.
--   **Document Service:** Manages document metadata, content persistence, and sharing permissions.
--   **Real-time Service:** Handles WebSocket connections, processes collaborative operations in real-time, and manages the live session state in Redis.
--   **PostgreSQL:** The primary database for persistent storage of users and documents.
--   **Redis:** High-speed cache for "hot" document sessions and the operation stack for undo functionality.
--   **NGINX Ingress:** Acts as the API Gateway, routing all incoming traffic to the appropriate microservice.
+## Architecture & Technology Stack
 
 ### Architecture Diagram
 <img width="5007" height="1998" alt="image (9)" src="https://github.com/user-attachments/assets/31074e3f-1713-4652-b70d-6e7de1ab800a" />
 
-### Sequence Diagram
-<img width="5267" height="4086" alt="image (7)" src="https://github.com/user-attachments/assets/68647ddc-d59d-46d3-ad6b-c515848794f2" />
+### Technology Table
+
+| Category | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Language** | **Go (Golang)** | High performance, excellent concurrency support |
+| **Containerization** | **Docker** | Packaging services into portable, immutable artifacts |
+| **Orchestration** | **Kubernetes (Minikube)** | Production-grade deployment, scaling, and self-healing |
+| **API Gateway** | **NGINX Ingress Controller** | Manages and routes all external HTTP/WebSocket traffic |
+| **Web Framework** | [Chi](https://github.com/go-chi/chi) | Lightweight and idiomatic HTTP router |
+| **Real-time** | [Gorilla WebSocket](https://github.com/gorilla/websocket) | Robust and battle-tested WebSocket library |
+| **Primary Database** | **PostgreSQL (Remote/Cloud)**| Reliable, persistent storage for users & documents |
+| **In-Memory Cache** | **Redis** | High-speed session state and operation (undo) stack |
+| **Observability** | **Prometheus, Grafana, Loki** | Centralized metrics, dashboards, and logging |
+| **Deployment** | **Helm** | Package manager for deploying the observability stack |
+| **Configuration** | **Kubernetes Secrets** | Secure, declarative management of sensitive configuration |
+| **Authentication** | **JWT (golang-jwt)** | Secure, stateless API authentication |
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
+Follow these instructions to deploy the entire microservice stack to a local Kubernetes cluster.
 
 ### Prerequisites
 
-You must have the following tools installed on your system:
+You must have the following tools installed and configured on your system:
 
--   **Docker:** To build and run containers.
--   **Kubernetes CLI (`kubectl`):** To interact with the Kubernetes cluster.
--   **Minikube:** To run a local Kubernetes cluster.
--   **Helm:** The package manager for Kubernetes, used to deploy the observability stack.
+*   **Docker:** To build and run containers.
+*   **Kubernetes CLI (`kubectl`):** To interact with the Kubernetes cluster.
+*   **Minikube:** To run a local Kubernetes cluster.
+*   **Helm:** The package manager for Kubernetes.
+*   A WebSocket client like `wscat` (`npm install -g wscat`).
+*   A tool for making API requests like `curl`.
+*   `jq`: A command-line JSON processor, useful for scripting tests.
 
-### Setup and Deployment
+### Deployment Instructions
 
-Follow these steps to deploy the entire application stack to your local Minikube cluster.
+**1. Start the Kubernetes Cluster**
 
-**1. Start Minikube**
-
-Start your local Kubernetes cluster and enable the necessary addons.
+Initialize your local Minikube cluster and enable the Ingress addon, which will act as our API Gateway.
 ```sh
 minikube start
 minikube addons enable ingress
 ```
 
-**2. Create the `.env` file**
+**2. Configure Environment Variables**
 
-This project uses an `.env` file for local configuration. Create a file named `.env` in the project root by copying the example.
+The application's sensitive configuration is managed via a Kubernetes Secret, which is generated from a local `.env` file.
+
 ```sh
+# Create your local configuration file from the example
 cp .env.local .env
 ```
-Review the `.env` file and ensure the values are suitable for your local setup. The defaults should work fine.
+**IMPORTANT:** Open the newly created `.env` file and:
+1.  Replace the placeholder `DATABASE_URL` with your **actual remote PostgreSQL connection string**.
+2.  Change `JWT_SECRET` to a long, unique, and random string for security.
 
 **3. Build and Load Docker Images**
 
-Point your Docker client to Minikube's internal registry and build the service images.
+This crucial command configures your local Docker client to communicate with the Docker daemon running *inside* the Minikube cluster. This allows you to build images directly into its environment, making them accessible to Kubernetes without needing an external registry.
+
 ```sh
 # For Linux/macOS
 eval $(minikube -p minikube docker-env)
 
-# For Windows PowerShell
-# & minikube -p minikube docker-env | Invoke-Expression
+# For Windows PowerShell: & minikube -p minikube docker-env | Invoke-Expression
 
-# Build the images
+# Build the images for each microservice
 docker build -t user-service:v1 -f ./cmd/user-service/Dockerfile .
 docker build -t document-service:v1 -f ./cmd/document-service/Dockerfile .
 docker build -t realtime-service:v1 -f ./cmd/realtime-service/Dockerfile .
 ```
 
-**4. Deploy Application to Kubernetes**
+**4. Deploy the Application to Kubernetes**
 
-Apply the Kubernetes manifests to create all application resources. The secret manifest uses variables from your `.env` file.
+Apply the Kubernetes manifests to create all application resources.
 ```sh
-# Create secrets and deployments
+# Create the Kubernetes Secret from your .env file
 kubectl apply -f k8s/secrets.yaml
+
+# Deploy Redis, our 3 services, and the Ingress routing rules
 kubectl apply -f k8s/
 ```
-Verify that all application pods are running:
+Verify that all application pods are running successfully:
 ```sh
 kubectl get pods
 ```
-Wait until `user-service`, `document-service`, `realtime-service`, and `redis` pods are in the `Running` state.
 
 **5. Deploy the Observability Stack**
 
-Use Helm to deploy Prometheus (metrics), Loki (logs), and Grafana (dashboards).
+Use Helm to deploy the Prometheus, Loki, and Grafana stack into your cluster.
 ```sh
 # Add the required Helm repositories
 helm repo add grafana https://grafana.github.io/helm-charts
@@ -110,53 +135,59 @@ helm install loki-stack grafana/loki-stack
 helm install prometheus prometheus-community/prometheus
 helm install grafana grafana/grafana
 ```
-Wait for all the new observability pods to enter the `Running` state.
+Wait for all observability pods (`loki-stack-`, `prometheus-`, `grafana-`) to enter the `Running` state.
 
 ---
 
 ## Testing the System
 
-Once all services are deployed and running, you can test the application.
+All interaction with the application now goes through the Minikube Ingress IP.
 
-**1. Get the Application IP Address**
-
-Find the entry point IP for your application from the Minikube Ingress.
+**1. Get the Application Entry Point**
 ```sh
 export MINIKUBE_IP=$(minikube ip)
 echo "Application is accessible at: http://$MINIKUBE_IP"
 ```
-All subsequent API calls will be made to this IP address.
 
-**2. Run the Test Flow (using `curl` and `wscat`)**
+**2. Run the Automated End-to-End Test Script**
 
-You will need at least two terminals to simulate two different users.
+The following script will:
+1.  Register two users.
+2.  Log them in and extract their JWTs.
+3.  Create a new document as User A.
+4.  Share the document with User B.
+5.  Print the exported variables needed for the manual WebSocket test.
 
-*   **Setup Users and Document:**
-    ```sh
-    # Register User A (Owner)
-    curl -X POST -H "Content-Type: application/json" -d '{"email":"owner@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/register
+```sh
+#!/bin/bash
+export MINIKUBE_IP=$(minikube ip)
 
-    # Login User A and get TOKEN_A
-    TOKEN_A=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"owner@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/login | jq -r .token)
-    echo "User A Token: $TOKEN_A"
+echo "--- 1. Registering Users ---"
+curl -X POST -H "Content-Type: application/json" -d '{"email":"owner@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/register
+curl -X POST -H "Content-Type: application/json" -d '{"email":"collab@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/register
 
-    # Register User B (Collaborator)
-    curl -X POST -H "Content-Type: application/json" -d '{"email":"collab@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/register
+echo -e "\n--- 2. Logging in Users ---"
+export TOKEN_A=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"owner@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/login | jq -r .token)
+export TOKEN_B=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"collab@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/login | jq -r .token)
 
-    # Login User B and get TOKEN_B
-    TOKEN_B=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"collab@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/login | jq -r .token)
-    echo "User B Token: $TOKEN_B"
+echo "--- 3. Creating Document ---"
+export DOCUMENT_ID=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN_A" -d '{"title":"Live Test Doc"}' http://$MINIKUBE_IP/documents | jq -r .ID)
 
-    # User A creates a document and get DOCUMENT_ID
-    DOCUMENT_ID=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN_A" -d '{"title":"Live Test Doc"}' http://$MINIKUBE_IP/documents | jq -r .ID)
-    echo "Document ID: $DOCUMENT_ID"
+echo "--- 4. Sharing Document ---"
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN_A" -d '{"email":"collab@example.com", "role":"editor"}' http://$MINIKUBE_IP/documents/$DOCUMENT_ID/share
 
-    # User A shares the document with User B
-    curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN_A" -d '{"email":"collab@example.com", "role":"editor"}' http://$MINIKUBE_IP/documents/$DOCUMENT_ID/share
-    ```
+echo -e "\n\n✅ Setup Complete! Use these exported variables for WebSocket testing:"
+echo "------------------------------------------------------------------"
+echo "export MINIKUBE_IP=$MINIKUBE_IP"
+echo "export DOCUMENT_ID=$DOCUMENT_ID"
+echo "export TOKEN_A=$TOKEN_A"
+echo "export TOKEN_B=$TOKEN_B"
+echo "------------------------------------------------------------------"
+```
 
-*   **Test Real-Time Editing:**
-    Open two terminals. In Terminal 1, connect as User A. In Terminal 2, connect as User B. (Requires `wscat` and `jq` to be installed).
+**3. Manual WebSocket Test**
+
+ Open two terminals. In Terminal 1, connect as User A. In Terminal 2, connect as User B. (Requires `wscat` and `jq` to be installed).
 
     *   **Terminal 1 (User A):**
         ```sh
@@ -186,7 +217,7 @@ You will need at least two terminals to simulate two different users.
     ```sh
     kubectl port-forward svc/grafana 3000:80
     ```
-    Now, open your browser and navigate to `http://localhost:3000`. Log in with username `admin` and the password you just retrieved.
+    Open your browser to `http://localhost:3000` and log in with username `admin` and the retrieved password.
 
 3.  **Configure Data Sources:**
     *   Navigate to **Connections -> Data Sources**.
@@ -195,9 +226,15 @@ You will need at least two terminals to simulate two different users.
 
 You can now use the **Explore** tab to view logs from all services (via Loki) and performance metrics (via Prometheus).
 
+## Roadmap / Future Work
+
+-   [ ] **Phase 3: Distributed Tracing**: Instrument services with OpenTelemetry and deploy Jaeger to visualize request flows across the microservice architecture.
+-   [ ] **Phase 4: Resilience Patterns**: Implement Circuit Breakers in the `realtime-service` to gracefully handle failures or slowdowns in the `document-service`.
+-   [ ] **Phase 4: Event-Driven Architecture**: Decouple services further by introducing a message broker like NATS for asynchronous communication (e.g., publishing a `DocumentUpdated` event instead of a synchronous save).
+-   [ ] **Full OT Algorithm**: Implement a complete Operational Transformation (OT) algorithm to resolve concurrent editing conflicts instead of simple version rejection.
+
 ## Cleaning Up
 
-To stop and delete all the resources created, run the following commands:
 ```sh
 # Delete all Kubernetes resources from your manifests
 kubectl delete -f k8s/

@@ -50,6 +50,34 @@ All components are containerized with Docker for consistent development and depl
 | **Configuration**         | [envconfig](https://github.com/kelseyhightower/envconfig) | Loading configuration from environment variables   |
 | **Authentication**        | **JWT (golang-jwt)**                           | Secure, stateless API authentication             |
 
+## Security Considerations
+
+### 🔐 **Authentication & Authorization**
+- **JWT-based authentication** for all protected endpoints
+- **Bearer token authorization** with secure token validation
+- **Role-based access control** for document sharing (owner, editor, viewer)
+- **Password hashing** using bcrypt for secure credential storage
+
+### 🛡️ **API Security**
+- **Input validation** on all endpoints with proper error handling
+- **CORS configuration** for cross-origin resource sharing
+- **Rate limiting** considerations for production deployment
+- **SQL injection prevention** using parameterized queries with pgx
+
+### 📝 **Documentation Security**
+- **Example tokens** in API documentation are clearly marked as fake
+- **No real secrets** are committed to the repository
+- **GitGuardian configuration** (`.gitguardian.yml`) to prevent false positives
+- **Environment-based configuration** keeps sensitive data out of source code
+
+### 🔒 **Production Recommendations**
+- Use strong, randomly generated JWT secrets
+- Implement proper HTTPS/TLS encryption
+- Set up API rate limiting and request throttling
+- Configure proper CORS policies for your frontend domain
+- Use secrets management systems (Kubernetes secrets, AWS Secrets Manager, etc.)
+- Enable audit logging for security monitoring
+
 ## Getting Started
 
 Follow these instructions to get the backend running on your local machine for development and testing.
@@ -143,6 +171,123 @@ curl -X POST -H "Content-Type: application/json" \
   -d '{"email": "userB@example.com", "role": "editor"}' \
   http://localhost:8080/documents/YOUR_DOCUMENT_ID/share
 ```
+
+## 📚 API Documentation (Swagger/OpenAPI)
+
+This project includes comprehensive API documentation using OpenAPI 3.0.3 specification (Swagger). The documentation provides detailed information about all endpoints, request/response schemas, authentication, and examples.
+
+### 📖 **Viewing the Documentation**
+
+#### **Option 1: Interactive HTML Documentation**
+1. Start a local web server in the project root:
+   ```bash
+   # Using Python (most common)
+   python3 -m http.server 8000
+   
+   # Or using Node.js
+   npx http-server -p 8000
+   
+   # Or using Go
+   go run -m http.server :8000
+   ```
+
+2. Open your browser and navigate to:
+   ```
+   http://localhost:8000/api-docs.html
+   ```
+
+#### **Option 2: Online Swagger Editor**
+1. Go to [editor.swagger.io](https://editor.swagger.io)
+2. Copy the contents of `swagger.yaml` from this repository
+3. Paste it into the editor for interactive documentation
+
+#### **Option 3: Import into API Tools**
+- **Postman**: Import `swagger.json` to automatically generate a collection
+- **Insomnia**: Import `swagger.yaml` for API testing
+- **VS Code**: Use REST Client extension with `requests.http` file
+
+### 📋 **Documentation Files**
+
+| File | Description | Use Case |
+|------|-------------|----------|
+| `swagger.yaml` | Complete OpenAPI 3.0.3 specification | Human-readable, detailed documentation |
+| `swagger.json` | JSON version of the specification | Tool integration, automated processing |
+| `api-docs.html` | Interactive HTML documentation | Local viewing with Swagger UI |
+| `requests.http` | HTTP request examples | Testing with VS Code REST Client |
+
+### 🚀 **What's Documented**
+
+#### **Authentication Endpoints**
+- `POST /auth/register` - User registration with validation
+- `POST /auth/login` - User authentication with JWT
+
+#### **Document Management**
+- `GET /documents` - List user's documents (owned and shared)
+- `POST /documents` - Create new document with required validation
+- `GET /documents/{id}` - Get specific document by ID
+- `PUT /documents/{id}` - Update document content (internal)
+- `POST /documents/{id}/share` - Share document with other users
+- `GET /documents/{id}/permissions/{userId}` - Check user permissions
+
+#### **Real-time Collaboration**
+- `GET /ws/doc/{documentId}` - WebSocket endpoint for live collaboration
+
+#### **Monitoring & Health**
+- `GET /metrics` - Prometheus metrics for monitoring
+
+### 🔐 **Authentication in Documentation**
+
+The Swagger documentation includes:
+- **Bearer Token Authentication** setup
+- **JWT token examples** and format
+- **Authorization headers** for protected endpoints
+- **Error responses** for unauthorized access
+
+### 💡 **Key Features**
+
+- **Request/Response Examples**: Real JSON examples for all endpoints
+- **Validation Rules**: Field requirements, data types, and constraints
+- **Error Scenarios**: Comprehensive error response documentation
+- **WebSocket Guide**: Instructions for real-time connection setup
+- **Interactive Testing**: Try endpoints directly from the documentation
+
+### 🛠 **Using with Development Tools**
+
+#### **Postman Collection Generation**
+```bash
+# Import swagger.json into Postman to auto-generate:
+# - All API endpoints
+# - Request examples
+# - Environment variables
+# - Authentication setup
+```
+
+#### **Client SDK Generation**
+```bash
+# Generate client SDKs for various languages
+npx @openapitools/openapi-generator-cli generate \
+  -i swagger.yaml \
+  -g javascript \
+  -o ./client-sdk
+```
+
+#### **API Gateway Integration**
+The OpenAPI specification can be used with:
+- **AWS API Gateway**
+- **Azure API Management**
+- **Kong Gateway**
+- **Envoy Proxy**
+
+### 📝 **Testing with the Documentation**
+
+1. **Start the application** (see Getting Started section)
+2. **Open the interactive documentation** at `http://localhost:8000/api-docs.html`
+3. **Try the "Register" endpoint** to create a test user
+4. **Use the "Login" endpoint** to get a JWT token
+5. **Copy the token** and use it in the "Authorize" button
+6. **Test document creation and management** with authenticated requests
+
+The documentation is kept in sync with the actual API implementation and includes all the latest features and validation rules.
 
 ## WebSocket API
 

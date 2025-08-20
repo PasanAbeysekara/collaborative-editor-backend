@@ -1,0 +1,792 @@
+openapi: 3.0.3
+info:
+  title: Collaborative Editor Backend API
+  description: |
+    A comprehensive REST API for a collaborative document editing platform.
+    
+    This API provides functionality for:
+    - User authentication and registration
+    - Document creation and management
+    - Document sharing and collaboration
+    - Real-time WebSocket connections for live editing
+    
+    ## Authentication
+    Most endpoints require JWT authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your_jwt_token>
+    ```
+    
+    ## Base URL
+    - Development: `http://192.168.49.2` (Minikube)
+    - Production: Configure based on your deployment
+    
+  version: 1.0.0
+  contact:
+    name: Pasan Abeysekara
+    url: https://github.com/PasanAbeysekara/collaborative-editor-backend
+  license:
+    name: MIT
+
+servers:
+  - url: http://192.168.49.2
+    description: Minikube Development Server
+  - url: http://localhost:8080
+    description: Local Development Server
+
+tags:
+  - name: Authentication
+    description: User registration and login endpoints
+  - name: Documents
+    description: Document management and collaboration endpoints
+  - name: Real-time
+    description: WebSocket endpoints for real-time collaboration
+  - name: Health
+    description: Health check and monitoring endpoints
+
+paths:
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              valid_user:
+                summary: Valid registration
+                value:
+                  email: "user@example.com"
+                  password: "secure-password-123"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              examples:
+                created_user:
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    email: "user@example.com"
+        '400':
+          description: Invalid request body
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request body"
+        '409':
+          description: User already exists
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "User with this email already exists"
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      description: Authenticate user and return JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              valid_login:
+                summary: Valid login credentials
+                value:
+                  email: "user@example.com"
+                  password: "secure-password-123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              examples:
+                login_success:
+                  value:
+                    token: "jwt.example.token-replace-with-actual-token-from-login"
+        '400':
+          description: Invalid request body
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request body"
+        '401':
+          description: Invalid credentials
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid email or password"
+
+  # Document Management Endpoints
+  /documents:
+    get:
+      tags:
+        - Documents
+      summary: Get user documents
+      description: Retrieve all documents owned by or shared with the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Documents retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Document'
+              examples:
+                user_documents:
+                  value:
+                    - id: "doc-123"
+                      title: "My First Document"
+                      ownerID: "user-123"
+                      content: "Hello World"
+                      version: 1
+                    - id: "doc-456"
+                      title: "Shared Document"
+                      ownerID: "user-456"
+                      content: "Collaborative content"
+                      version: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Documents
+      summary: Create new document
+      description: Create a new document with the specified title and content
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+            examples:
+              new_document:
+                summary: Create a new document
+                value:
+                  title: "My New Document"
+                  content: "Initial content of the document"
+      responses:
+        '201':
+          description: Document created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+              examples:
+                created_document:
+                  value:
+                    id: "doc-789"
+                    title: "My New Document"
+                    ownerID: "user-123"
+                    content: "Initial content of the document"
+                    version: 0
+        '400':
+          description: Invalid request body or missing required fields
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                missing_title:
+                  summary: Missing title
+                  value: "Title is required"
+                invalid_body:
+                  summary: Invalid JSON
+                  value: "Invalid request body"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/{documentId}:
+    get:
+      tags:
+        - Documents
+      summary: Get specific document
+      description: Retrieve a specific document by ID (requires permission)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          description: Unique identifier of the document
+          schema:
+            type: string
+            format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Document retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+              examples:
+                document_details:
+                  value:
+                    id: "doc-123"
+                    title: "Project Planning"
+                    ownerID: "user-123"
+                    content: "# Project Planning\n\n## Objectives\n- Define scope"
+                    version: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Permission denied
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Access denied to this document"
+        '404':
+          description: Document not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Document not found"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Documents
+      summary: Update document content
+      description: Update the content and version of a document (internal endpoint)
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          description: Unique identifier of the document
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDocumentRequest'
+            examples:
+              update_content:
+                value:
+                  content: "Updated document content"
+                  version: 3
+      responses:
+        '200':
+          description: Document updated successfully
+        '400':
+          description: Invalid request body
+        '404':
+          description: Document not found
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/{documentId}/share:
+    post:
+      tags:
+        - Documents
+      summary: Share document with user
+      description: Grant access to a document for another user with specified role
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          description: Unique identifier of the document to share
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareDocumentRequest'
+            examples:
+              share_editor:
+                summary: Share with editor role
+                value:
+                  email: "collaborator@example.com"
+                  role: "editor"
+              share_viewer:
+                summary: Share with viewer role
+                value:
+                  email: "viewer@example.com"
+                  role: "viewer"
+      responses:
+        '200':
+          description: Document shared successfully
+        '400':
+          description: Invalid request body
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request body"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Permission denied - only owner can share
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Only document owner can share"
+        '404':
+          description: Document or target user not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                document_not_found:
+                  summary: Document not found
+                  value: "Document not found"
+                user_not_found:
+                  summary: Target user not found
+                  value: "Target user not found"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/{documentId}/permissions/{userId}:
+    get:
+      tags:
+        - Documents
+      summary: Check document permissions
+      description: Check if a user has permission to access a document (internal endpoint)
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          description: Unique identifier of the document
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          description: Unique identifier of the user
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Permission check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasPermission:
+                    type: boolean
+                    description: Whether the user has permission
+                  role:
+                    type: string
+                    description: User's role for this document
+                    enum: [owner, editor, viewer]
+              examples:
+                has_permission:
+                  value:
+                    hasPermission: true
+                    role: "editor"
+                no_permission:
+                  value:
+                    hasPermission: false
+        '404':
+          description: Document or user not found
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # WebSocket Endpoints
+  /ws/doc/{documentId}:
+    get:
+      tags:
+        - Real-time
+      summary: WebSocket connection for real-time collaboration
+      description: |
+        Establish a WebSocket connection for real-time document collaboration.
+        
+        **Query Parameters:**
+        - `token`: JWT authentication token
+        
+        **WebSocket Messages:**
+        - Send editing operations as JSON
+        - Receive real-time updates from other users
+        
+        **Example Usage:**
+        ```javascript
+        const ws = new WebSocket('ws://192.168.49.2/ws/doc/doc-123?token=your_jwt_token');
+        
+        ws.onmessage = (event) => {
+          const operation = JSON.parse(event.data);
+          // Handle received operation
+        };
+        
+        ws.send(JSON.stringify({
+          type: 'edit',
+          operation: 'insert',
+          position: 10,
+          content: 'Hello World'
+        }));
+        ```
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          description: Unique identifier of the document to collaborate on
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: query
+          required: true
+          description: JWT authentication token
+          schema:
+            type: string
+      responses:
+        '101':
+          description: WebSocket connection established
+        '401':
+          description: Invalid or missing token
+        '403':
+          description: No permission to access document
+        '404':
+          description: Document not found
+
+  # Health and Monitoring
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics
+      description: Get Prometheus metrics for monitoring
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP http_requests_total Total number of HTTP requests
+                # TYPE http_requests_total counter
+                http_requests_total{method="GET",status="200"} 1234
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from the login endpoint.
+        Include it in the Authorization header: `Authorization: Bearer <token>`
+
+  schemas:
+    # Request/Response Schemas
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          minLength: 6
+          description: User's password (minimum 6 characters)
+          example: "secure-password-123"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          description: User's password
+          example: "secure-password-123"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT authentication token
+          example: "jwt.example.token-replace-with-actual-token-from-login"
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+
+    CreateDocumentRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          description: Document title
+          example: "My New Document"
+        content:
+          type: string
+          description: Initial document content (optional)
+          example: "This is the initial content of the document."
+
+    ShareDocumentRequest:
+      type: object
+      required:
+        - email
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email of the user to share with
+          example: "collaborator@example.com"
+        role:
+          type: string
+          enum: [editor, viewer]
+          description: Access role for the shared user
+          example: "editor"
+
+    UpdateDocumentRequest:
+      type: object
+      required:
+        - content
+        - version
+      properties:
+        content:
+          type: string
+          description: Updated document content
+          example: "Updated content with new information"
+        version:
+          type: integer
+          minimum: 0
+          description: Document version number for conflict resolution
+          example: 2
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique document identifier
+          example: "doc-123e4567-e89b-12d3-a456-426614174000"
+        title:
+          type: string
+          description: Document title
+          example: "Project Planning Document"
+        ownerID:
+          type: string
+          format: uuid
+          description: ID of the document owner
+          example: "user-123e4567-e89b-12d3-a456-426614174000"
+        content:
+          type: string
+          description: Document content
+          example: "# Project Planning\n\n## Objectives\n- Define project scope\n- Set milestones"
+        version:
+          type: integer
+          minimum: 0
+          description: Current document version
+          example: 3
+
+    # Error Schemas
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: integer
+          description: Error code
+        details:
+          type: string
+          description: Additional error details
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        text/plain:
+          schema:
+            type: string
+          examples:
+            missing_token:
+              summary: Missing authorization header
+              value: "Authorization header required"
+            invalid_token:
+              summary: Invalid or expired token
+              value: "Invalid or expired token"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        text/plain:
+          schema:
+            type: string
+          example: "Internal server error"
+
+  examples:
+    # Document Examples
+    BasicDocument:
+      summary: Basic document
+      value:
+        id: "doc-123"
+        title: "Meeting Notes"
+        ownerID: "user-456"
+        content: "# Meeting Notes\n\n## Agenda\n1. Project updates\n2. Next steps"
+        version: 1
+
+    CollaborativeDocument:
+      summary: Collaborative document with multiple versions
+      value:
+        id: "doc-789"
+        title: "Shared Project Document"
+        ownerID: "user-123"
+        content: "# Shared Project\n\nThis document is being edited by multiple users."
+        version: 5
+
+# API Usage Examples
+x-examples:
+  authentication_flow:
+    summary: Complete authentication flow
+    description: |
+      1. Register a new user
+      2. Login to get JWT token
+      3. Use token for authenticated requests
+    steps:
+      - description: Register new user
+        request:
+          method: POST
+          url: /auth/register
+          body:
+            email: "newuser@example.com"
+            password: "securepass123"
+      - description: Login to get token
+        request:
+          method: POST
+          url: /auth/login
+          body:
+            email: "newuser@example.com"
+            password: "securepass123"
+      - description: Create document with token
+        request:
+          method: POST
+          url: /documents
+          headers:
+            Authorization: "Bearer <token_from_step_2>"
+          body:
+            title: "My First Document"
+            content: "Hello World"
+
+  document_collaboration:
+    summary: Document sharing and collaboration
+    description: |
+      1. Create a document
+      2. Share it with another user
+      3. Collaborator accesses the shared document
+    steps:
+      - description: Create document
+        request:
+          method: POST
+          url: /documents
+          headers:
+            Authorization: "Bearer <owner_token>"
+          body:
+            title: "Collaborative Document"
+            content: "Initial content"
+      - description: Share document
+        request:
+          method: POST
+          url: /documents/{documentId}/share
+          headers:
+            Authorization: "Bearer <owner_token>"
+          body:
+            email: "collaborator@example.com"
+            role: "editor"
+      - description: Access shared document
+        request:
+          method: GET
+          url: /documents/{documentId}
+          headers:
+            Authorization: "Bearer <collaborator_token>"
+
+  websocket_connection:
+    summary: WebSocket real-time collaboration
+    description: |
+      Establish WebSocket connection for real-time document editing
+    code: |
+      // JavaScript example
+      const documentId = 'doc-123';
+      const token = 'your-jwt-token';
+      const ws = new WebSocket(`ws://192.168.49.2/ws/doc/${documentId}?token=${token}`);
+      
+      ws.onopen = () => {
+        console.log('Connected to document collaboration');
+      };
+      
+      ws.onmessage = (event) => {
+        const operation = JSON.parse(event.data);
+        console.log('Received operation:', operation);
+        // Apply operation to document
+      };
+      
+      // Send editing operation
+      ws.send(JSON.stringify({
+        type: 'edit',
+        operation: 'insert',
+        position: 10,
+        content: 'New text'
+      }));

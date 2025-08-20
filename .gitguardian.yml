@@ -1,0 +1,56 @@
+# GitGuardian configuration file
+# This file configures what GitGuardian should and shouldn't scan
+
+# Version of the GitGuardian configuration
+version: 2
+
+# Paths to ignore during scanning
+paths-ignore:
+  - "swagger.yaml"     # API documentation with example tokens
+  - "swagger.json"     # API documentation with example tokens  
+  - "api-docs.html"    # Interactive API documentation
+  - "**/test/**"       # Test files may contain dummy secrets
+  - "**/tests/**"      # Test files may contain dummy secrets
+  - "**/*.test.*"      # Test files
+  - "**/mock/**"       # Mock files with fake data
+  - "**/fixtures/**"   # Test fixtures
+
+# Specific secrets to ignore (use commit SHA + secret)
+secrets-ignore:
+  # Example JWT tokens in API documentation
+  - name: "JWT tokens in API documentation"
+    match: "jwt.example.token"
+  
+  # Standard JWT examples that are commonly used in documentation
+  - name: "Standard JWT documentation examples"
+    match: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+
+# File patterns to ignore
+ignore-paths:
+  - "*.md"           # Documentation files
+  - "*.txt"          # Text files
+  - "*.log"          # Log files
+  - "*.example"      # Example configuration files
+
+# Detectors to disable for documentation
+detectors-ignore:
+  - name: "JSON Web Token"
+    paths:
+      - "swagger.yaml"
+      - "swagger.json"
+      - "requests.http"
+      - "README.md"
+      - "api-docs.html"
+
+# Custom rules for this project
+custom-detectors: []
+
+# Minimum entropy for secret detection
+min-entropy: 3.5
+
+# Only scan for high-confidence secrets
+policies:
+  - name: "Documentation files"
+    paths: ["*.md", "swagger.*", "api-docs.*"]
+    ignore-known-secrets: true
+    ignore-default-secrets: true

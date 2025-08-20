@@ -103,6 +103,38 @@ func (s *PostgresStore) GetDocument(documentID string) (*Document, error) {
 	return doc, nil
 }
 
+func (s *PostgresStore) GetUserDocuments(userID string) ([]*Document, error) {
+	query := `
+		SELECT DISTINCT d.id, d.title, d.owner_id, d.content, d.version 
+		FROM documents d 
+		LEFT JOIN document_permissions dp ON d.id = dp.document_id 
+		WHERE d.owner_id = $1 OR dp.user_id = $1
+		ORDER BY d.title
+	`
+
+	rows, err := s.pool.Query(context.Background(), query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var documents []*Document
+	for rows.Next() {
+		doc := &Document{}
+		err := rows.Scan(&doc.ID, &doc.Title, &doc.OwnerID, &doc.Content, &doc.Version)
+		if err != nil {
+			return nil, err
+		}
+		documents = append(documents, doc)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return documents, nil
+}
+
 func (s *PostgresStore) UpdateDocument(documentID, content string, version int) error {
 	query := `UPDATE documents SET content = $1, version = $2 WHERE id = $3`
 

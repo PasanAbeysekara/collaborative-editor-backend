@@ -95,3 +95,23 @@ func (s *MemoryStore) CreateDocument(title, ownerID string) (*Document, error) {
 
 	return &doc, nil
 }
+
+func (s *MemoryStore) GetUserDocuments(userID string) ([]*Document, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var documents []*Document
+	for _, doc := range s.documents {
+		if doc.OwnerID == userID {
+			// Create a copy to avoid returning pointer to internal map value
+			docCopy := doc
+			documents = append(documents, &docCopy)
+		}
+	}
+
+	return documents, nil
+}
+
+// Note: This memory store implementation is missing several required methods.
+// In production, you should implement all methods from the Store interface:
+// GetDocument, UpdateDocument, CheckDocumentPermission, ShareDocument

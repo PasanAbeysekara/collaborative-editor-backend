@@ -17,7 +17,8 @@ type DocumentHandler struct {
 }
 
 type CreateDocumentRequest struct {
-	Title string `json:"title"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 type ShareDocumentRequest struct {
@@ -43,8 +44,15 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Validate required fields
 	if req.Title == "" {
-		req.Title = "Untitled Document"
+		http.Error(w, "Title is required", http.StatusBadRequest)
+		return
+	}
+
+	// Content can be empty, but if not provided, default to empty string
+	if req.Content == "" {
+		req.Content = ""
 	}
 
 	doc, err := h.Store.CreateDocument(req.Title, userID)
@@ -56,6 +64,24 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(doc)
+}
+
+func (h *DocumentHandler) GetUserDocuments(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Could not get user ID from context", http.StatusInternalServerError)
+		return
+	}
+
+	documents, err := h.Store.GetUserDocuments(userID)
+	if err != nil {
+		http.Error(w, "Failed to retrieve documents", http.StatusInternalServerError)
+		log.Printf("Error retrieving documents for user %s: %v", userID, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(documents)
 }
 
 func (h *DocumentHandler) ShareDocument(w http.ResponseWriter, r *http.Request) {
@@ -113,17 +139,17 @@ func (h *DocumentHandler) CheckPermission(w http.ResponseWriter, r *http.Request
 }
 
 func (h *DocumentHandler) GetDocument(w http.ResponseWriter, r *http.Request) {
-    documentID := chi.URLParam(r, "documentID")
+	documentID := chi.URLParam(r, "documentID")
 
-    doc, err := h.Store.GetDocument(documentID)
-    if err != nil {
-        if err == pgx.ErrNoRows {
-            http.Error(w, "Document not found", http.StatusNotFound)
-            return
-        }
-        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-        return
-    }
+	doc, err := h.Store.GetDocument(documentID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			http.Error(w, "Document not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	// Return the document details as JSON.
 	w.Header().Set("Content-Type", "application/json")
@@ -131,18 +157,18 @@ func (h *DocumentHandler) GetDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DocumentHandler) SaveDocument(w http.ResponseWriter, r *http.Request) {
-      documentID := chi.URLParam(r, "documentID")
-      
-      var req UpdateDocumentRequest
-      if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-          http.Error(w, "Invalid request body", http.StatusBadRequest)
-          return
-      }
+	documentID := chi.URLParam(r, "documentID")
 
-      err := h.Store.UpdateDocument(documentID, req.Content, req.Version)
-      if err != nil {
-          http.Error(w, "Failed to update document", http.StatusInternalServerError)
-          return
-      }
-      w.WriteHeader(http.StatusOK)
-  }
+	var req UpdateDocumentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.Store.UpdateDocument(documentID, req.Content, req.Version)
+	if err != nil {
+		http.Error(w, "Failed to update document", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}

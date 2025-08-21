@@ -2,10 +2,11 @@ package realtime
 
 import (
 	"context"
-	"log"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/go-chi/chi/v5"
@@ -19,7 +20,33 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		allowedOrigins := []string{
+			"https://solid-guide-974w6599qrjgfpr9j-5174.app.github.dev",
+			"http://localhost:3000",
+			"http://localhost:3001",
+			"http://127.0.0.1:3000",
+			"http://127.0.0.1:3001",
+		}
+
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				return true
+			}
+			// Support wildcard subdomains like *.trycloudflare.com
+			if strings.HasSuffix(allowedOrigin, ".trycloudflare.com") && strings.HasSuffix(origin, ".trycloudflare.com") {
+				return true
+			}
+			if strings.HasSuffix(allowedOrigin, ".ngrok.io") && strings.HasSuffix(origin, ".ngrok.io") {
+				return true
+			}
+		}
+
+		// Allow development environments
+		return strings.HasPrefix(origin, "http://localhost:") ||
+			strings.HasPrefix(origin, "http://127.0.0.1:")
+	},
 }
 
 type Manager struct {
@@ -38,23 +65,23 @@ func NewManager(cache storage.Cache, docServiceURL string) *Manager {
 }
 
 func (m *Manager) getDocumentFromService(documentID string) (*storage.Document, error) {
-    url := fmt.Sprintf("%s/documents/%s", m.documentServiceURL, documentID)
-    resp, err := http.Get(url)
-    if err != nil {
-        return nil, fmt.Errorf("failed to call document service: %w", err)
-    }
-    defer resp.Body.Close()
+	url := fmt.Sprintf("%s/documents/%s", m.documentServiceURL, documentID)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call document service: %w", err)
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK {
-        return nil, fmt.Errorf("document service returned status %d", resp.StatusCode)
-    }
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("document service returned status %d", resp.StatusCode)
+	}
 
-    var doc storage.Document
-    if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-        return nil, fmt.Errorf("failed to decode document from service: %w", err)
-    }
+	var doc storage.Document
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return nil, fmt.Errorf("failed to decode document from service: %w", err)
+	}
 
-    return &doc, nil
+	return &doc, nil
 }
 
 func (m *Manager) getOrCreateHub(documentID string) (*Hub, error) {
@@ -116,23 +143,23 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hasPermission, err := m.checkPermissions(documentID, userID)
-    if err != nil {
-        log.Printf("Error calling document-service for permissions: %v", err)
-        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-        return
-    }
+	if err != nil {
+		log.Printf("Error calling document-service for permissions: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	if !hasPermission {
-        http.Error(w, "Forbidden", http.StatusForbidden)
-        return
-    }
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 
 	hub, err := m.getOrCreateHub(documentID)
 	if err != nil {
 		http.Error(w, "Document not found or internal error", http.StatusNotFound)
 		return
 	}
-	
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Failed to upgrade connection:", err)
@@ -154,12 +181,12 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Manager) checkPermissions(documentID, userID string) (bool, error) {
-    url := fmt.Sprintf("%s/documents/%s/permissions/%s", m.documentServiceURL, documentID, userID)
-    resp, err := http.Get(url)
-    if err != nil {
-        return false, err
-    }
-    defer resp.Body.Close()
+	url := fmt.Sprintf("%s/documents/%s/permissions/%s", m.documentServiceURL, documentID, userID)
+	resp, err := http.Get(url)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
 
-    return resp.StatusCode == http.StatusOK, nil
+	return resp.StatusCode == http.StatusOK, nil
 }

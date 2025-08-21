@@ -11,6 +11,7 @@ import (
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/handlers"
+	customMiddleware "github.com/pasanAbeysekara/collaborative-editor/internal/middleware"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -31,6 +32,7 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(customMiddleware.CORSMiddleware(customMiddleware.GetAllowedOrigins()))
 
 	r.Handle("/metrics", promhttp.Handler())
 

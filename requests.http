@@ -1,66 +1,309 @@
-@baseUrl = http://localhost:8080
+# Collaborative Editor Backend API Tests
+# Base URL configuration for minikube deployment
+@baseUrl = https://supreme-system-wxxpqj7gp743grp7-8080.app.github.dev
 
-### 1. Register a new user
-# This endpoint creates a new user in the in-memory store.
+# Variables for easier testing
+@testUser1Email = test@example.com
+@testUser1Password = a-very-strong-password
+@testUser2Email = test2@example.com
+@testUser2Password = a-very-strong-password
+
+## =================================================================
+## AUTHENTICATION ENDPOINTS (User Service)
+## =================================================================
+
+### 1. Register first test user
+# This endpoint creates a new user in the system
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "email": "test@example.com",
-  "password": "a-very-strong-password"
+  "email": "{{testUser1Email}}",
+  "password": "{{testUser1Password}}"
 }
 
 ###
 
-### 2. Login with the user to get a JWT
-# This request will log in the user created above.
-# The @name directive allows us to reference this request's response later.
-# @name loginRequest
+### 2. Register second test user (for collaboration testing)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{testUser2Email}}",
+  "password": "{{testUser2Password}}"
+}
+
+###
+
+### 3. Login with first user to get JWT
+# @name loginUser1
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "test@example.com",
-  "password": "a-very-strong-password"
+  "email": "{{testUser1Email}}",
+  "password": "{{testUser1Password}}"
 }
 
 ###
 
-### 3. Access a protected route using the JWT
-# This request captures the token from the login response and uses it
-# in the Authorization header to access a protected endpoint.
-@token = {{loginRequest.response.body.token}}
-
-GET {{baseUrl}}/api/me
-Authorization: Bearer {{token}}
-
-###
-
-### 4. Create a new document
-@token = {{loginRequest.response.body.token}}
-
-POST {{baseUrl}}/api/documents
-Authorization: Bearer {{token}}
+### 4. Login with second user to get JWT
+# @name loginUser2
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "title": "My New Document"
+  "email": "{{testUser2Email}}",
+  "password": "{{testUser2Password}}"
 }
 
 ###
 
-### 5. Share a document with another user
-@token = {{loginRequest.response.body.token}}
+## =================================================================
+## DOCUMENT MANAGEMENT ENDPOINTS (Document Service)
+## =================================================================
 
-POST {{baseUrl}}/documents/48c3b3bd-35e1-405e-ba75-d7336921bb74/share
-Authorization: Bearer {{token}}
+### 5. Create a new document
+@token1 = {{loginUser1.response.body.token}}
+
+POST {{baseUrl}}/documents
+Authorization: Bearer {{token1}}
 Content-Type: application/json
 
 {
-  "email": "test1@example.com",
+  "title": "My Collaborative Document",
+  "content": "This is the initial content of the document."
+}
+
+###
+
+### 6. Create another document for testing
+@token1 = {{loginUser1.response.body.token}}
+
+POST {{baseUrl}}/documents
+Authorization: Bearer {{token1}}
+Content-Type: application/json
+
+{
+  "title": "Project Planning Document",
+  "content": "# Project Planning\n\n## Objectives\n- Define project scope\n- Set milestones"
+}
+
+###
+
+### 7. Get all documents for the current user
+@token1 = {{loginUser1.response.body.token}}
+
+GET {{baseUrl}}/documents
+Authorization: Bearer {{token1}}
+
+###
+
+### 8. Get a specific document by ID (replace with actual document ID from previous responses)
+@token1 = {{loginUser1.response.body.token}}
+@documentId = 48c3b3bd-35e1-405e-ba75-d7336921bb74
+
+GET {{baseUrl}}/documents/{{documentId}}
+Authorization: Bearer {{token1}}
+
+###
+
+### 9. Update document content
+@token1 = {{loginUser1.response.body.token}}
+@documentId = 48c3b3bd-35e1-405e-ba75-d7336921bb74
+
+PUT {{baseUrl}}/documents/{{documentId}}
+Authorization: Bearer {{token1}}
+Content-Type: application/json
+
+{
+  "title": "Updated Document Title",
+  "content": "This is the updated content with new information."
+}
+
+###
+
+## =================================================================
+## DOCUMENT SHARING AND COLLABORATION
+## =================================================================
+
+### 10. Share document with another user (editor role)
+@token1 = {{loginUser1.response.body.token}}
+@documentId = 48c3b3bd-35e1-405e-ba75-d7336921bb74
+
+POST {{baseUrl}}/documents/{{documentId}}/share
+Authorization: Bearer {{token1}}
+Content-Type: application/json
+
+{
+  "email": "{{testUser2Email}}",
   "role": "editor"
 }
 
 ###
 
-{ "type": "insert", "pos": 11, "text": " pasan", "version": 1 }
+### 11. Get shared documents (from second user's perspective)
+@token2 = {{loginUser2.response.body.token}}
+
+GET {{baseUrl}}/documents
+Authorization: Bearer {{token2}}
+
+###
+
+### 12. Access shared document as second user
+@token2 = {{loginUser2.response.body.token}}
+@documentId = 48c3b3bd-35e1-405e-ba75-d7336921bb74
+
+GET {{baseUrl}}/documents/{{documentId}}
+Authorization: Bearer {{token2}}
+
+###
+
+### 13. Check document permissions (internal endpoint, no auth needed)
+# This is typically used by internal services
+@documentId = 48c3b3bd-35e1-405e-ba75-d7336921bb74
+@userId = 74edc698-deb0-4045-b3fa-83d1e48c0649
+
+GET {{baseUrl}}/documents/{{documentId}}/permissions/{{userId}}
+
+###
+
+## =================================================================
+## REAL-TIME COLLABORATION (WebSocket)
+## =================================================================
+
+### 14. Test WebSocket endpoint connection
+# Note: This will fail in HTTP client, but shows the endpoint exists
+@token1 = {{loginUser1.response.body.token}}
+@documentId = 48c3b3bd-35e1-405e-ba75-d7336921bb74
+
+GET {{baseUrl}}/ws/doc/{{documentId}}?token={{token1}}
+Upgrade: websocket
+Connection: Upgrade
+
+###
+
+# ## =================================================================
+# ## HEALTH CHECK AND MONITORING
+# ## =================================================================
+
+# ### 15. User service metrics
+# GET {{baseUrl}}/auth/../metrics
+
+# ###
+
+# ### 16. Document service metrics  
+# GET {{baseUrl}}/documents/../metrics
+
+# ###
+
+# ### 17. Test basic connectivity
+# GET {{baseUrl}}/
+
+###
+
+## =================================================================
+## ERROR HANDLING TESTS
+## =================================================================
+
+### 18. Try to access protected route without token
+GET {{baseUrl}}/documents
+
+###
+
+### 19. Try to access non-existent document
+@token1 = {{loginUser1.response.body.token}}
+
+GET {{baseUrl}}/documents/non-existent-id
+Authorization: Bearer {{token1}}
+
+###
+
+### 20. Try to share document with invalid data
+@token1 = {{loginUser1.response.body.token}}
+@documentId = 48c3b3bd-35e1-405e-ba75-d7336921bb74
+
+POST {{baseUrl}}/documents/{{documentId}}/share
+Authorization: Bearer {{token1}}
+Content-Type: application/json
+
+{
+  "email": "invalid-email",
+  "role": "invalid-role"
+}
+
+###
+
+### 21. Try to register with existing email
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{testUser1Email}}",
+  "password": "different-password"
+}
+
+###
+
+### 22. Try login with wrong password
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{testUser1Email}}",
+  "password": "wrong-password"
+}
+
+###
+
+### 23. Try to create document without required fields (should fail with 400)
+@token1 = {{loginUser1.response.body.token}}
+
+POST {{baseUrl}}/documents
+Authorization: Bearer {{token1}}
+Content-Type: application/json
+
+{
+  "invalid": "data"
+}
+
+###
+
+### 24. Try to create document with empty title (should fail with 400)
+@token1 = {{loginUser1.response.body.token}}
+
+POST {{baseUrl}}/documents
+Authorization: Bearer {{token1}}
+Content-Type: application/json
+
+{
+  "title": "",
+  "content": "Some content"
+}
+
+###
+
+### 25. Try to create document with only content (should fail with 400)
+@token1 = {{loginUser1.response.body.token}}
+
+POST {{baseUrl}}/documents
+Authorization: Bearer {{token1}}
+Content-Type: application/json
+
+{
+  "content": "Content without title"
+}
+
+###
+
+## =================================================================
+## NOTES FOR WEBSOCKET TESTING
+## =================================================================
+# 
+# For proper WebSocket testing, use a WebSocket client tool like:
+# - wscat: wscat -c "ws://192.168.49.2/ws/doc/{{documentId}}?token={{token1}}"
+# - Browser DevTools Console:
+#   const ws = new WebSocket("ws://192.168.49.2/ws/doc/{{documentId}}?token={{token1}}");
+#   ws.onmessage = (event) => console.log("Received:", event.data);
+#   ws.send(JSON.stringify({type: "edit", content: "Hello World"}));
+#

@@ -283,10 +283,8 @@ The OpenAPI specification can be used with:
 The documentation is kept in sync with the actual API implementation and includes all the latest features and validation rules.
 
 ## WebSocket API
-=======
----
 
-## Testing the System
+### Testing the System
 
 All interaction with the application now goes through the Minikube Ingress IP.
 

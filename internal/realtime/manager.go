@@ -22,6 +22,11 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
+		
+		if origin == "" {
+			return true
+		}
+		
 		allowedOrigins := []string{
 			"https://solid-guide-974w6599qrjgfpr9j-5174.app.github.dev",
 			"http://localhost:3000",

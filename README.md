@@ -3,7 +3,9 @@
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-1.25+-326CE5.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-[![Build Status](https://img.shields.io/badge/Build-## WebSocket API
+[![Build Status](https://img.shields.io/badge/Build-passing-brightgreen.svg)](https://github.com/your-org/your-repo/actions)  
+
+## WebSocket API
 
 The WebSocket API provides real-time collaborative document editing capabilities. This section covers the complete message format specification for client-server communication.
 
@@ -249,8 +251,7 @@ function undoOperation() {
     }));
 }
 ```
-
-### Testing the Systemsing-brightgreen.svg)](#) <!-- Placeholder -->
+### Testing the System  
 
 This repository contains the backend for a cloud-native, real-time collaborative document editor, inspired by applications like Google Docs. It is engineered with a **production-grade microservice architecture** using Go, containerized with Docker, and orchestrated with **Kubernetes**. The system provides a robust foundation for building scalable, resilient, and observable distributed systems.
 

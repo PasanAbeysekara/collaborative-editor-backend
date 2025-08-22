@@ -3,7 +3,254 @@
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8.svg)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-1.25+-326CE5.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](#) <!-- Placeholder -->
+[![Build Status](https://img.shields.io/badge/Build-## WebSocket API
+
+The WebSocket API provides real-time collaborative document editing capabilities. This section covers the complete message format specification for client-server communication.
+
+### Connection Establishment
+
+**Endpoint:** `wss://your-domain/ws/doc/{documentId}` or `ws://localhost/ws/doc/{documentId}`
+
+**Authentication:** Required via `Authorization` header with Bearer token
+```bash
+wscat -c "wss://your-domain/ws/doc/{documentId}" --header "Authorization: Bearer {jwt_token}"
+```
+
+### Message Format Specification
+
+#### Initial State Message (Server → Client)
+When a client first connects, the server sends the initial document state:
+
+```json
+{
+  "type": "initial_state"
+}
+```
+
+This message indicates that the connection is established and the client can begin sending operations.
+
+#### Operation Messages
+
+##### Client Input Format (Client → Server)
+Clients send operations in the following format:
+
+**Insert Operation:**
+```json
+{
+  "type": "insert",
+  "pos": 0,
+  "text": "Hello world",
+  "version": 0
+}
+```
+
+**Delete Operation:**
+```json
+{
+  "type": "delete",
+  "pos": 0,
+  "len": 5,
+  "version": 1
+}
+```
+
+**Undo Operation:**
+```json
+{
+  "type": "undo"
+}
+```
+
+##### Server Output Format (Server → All Clients)
+The server broadcasts operations to all connected clients in this format:
+
+```json
+{
+  "type": "operation",
+  "op": {
+    "type": "insert",
+    "pos": 0,
+    "text": "Hello world",
+    "len": 0,
+    "version": 1
+  }
+}
+```
+
+**Field Descriptions:**
+- `type`: Always "operation" for broadcasted operations
+- `op.type`: Operation type (`insert`, `delete`, `undo`)
+- `op.pos`: Character position in the document (0-based)
+- `op.text`: Text content (for insert operations)
+- `op.len`: Length of text affected (for delete operations)
+- `op.version`: Document version after this operation
+
+#### Operation Types Details
+
+| Operation | Client Input | Server Output | Description |
+|-----------|--------------|---------------|-------------|
+| **Insert** | `{"type":"insert","pos":5,"text":"Hello","version":0}` | `{"type":"operation","op":{"type":"insert","pos":5,"text":"Hello","len":0,"version":1}}` | Inserts text at specified position |
+| **Delete** | `{"type":"delete","pos":0,"len":5,"version":1}` | `{"type":"operation","op":{"type":"delete","pos":0,"text":"","len":5,"version":2}}` | Deletes specified length of text from position |
+| **Undo** | `{"type":"undo"}` | `{"type":"operation","op":{"type":"delete","pos":0,"text":"","len":5,"version":3}}` | Undoes the last operation by the requesting user |
+
+#### Version Control and Conflict Resolution
+
+- Each operation includes a `version` field representing the expected document state
+- The server maintains the authoritative document version
+- Operations with outdated versions may be rejected
+- Clients should track the latest version from server responses
+
+#### Error Handling
+
+**Authentication Error:**
+```json
+{
+  "type": "error",
+  "message": "Invalid token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**Permission Error:**
+```json
+{
+  "type": "error",
+  "message": "Access denied",
+  "code": "FORBIDDEN"
+}
+```
+
+**Version Conflict:**
+```json
+{
+  "type": "error",
+  "message": "Version mismatch",
+  "code": "CONFLICT",
+  "current_version": 5
+}
+```
+
+### WebSocket API Usage Examples
+
+#### Complete Workflow Example
+
+**1. Connect to Document:**
+```bash
+wscat -c "wss://your-domain/ws/doc/doc-uuid" --header "Authorization: Bearer jwt-token"
+```
+
+**2. Receive Initial State:**
+```
+< {"type":"initial_state"}
+```
+
+**3. Send Insert Operation:**
+```
+> {"type": "insert", "pos": 0, "text": "Hello world", "version": 0}
+```
+
+**4. Receive Broadcast:**
+```
+< {"type":"operation","op":{"type":"insert","pos":0,"text":"Hello world","len":0,"version":1}}
+```
+
+**5. Send Delete Operation:**
+```
+> {"type": "delete", "pos": 0, "len": 5, "version": 1}
+```
+
+**6. Receive Broadcast:**
+```
+< {"type":"operation","op":{"type":"delete","pos":0,"text":"","len":5,"version":2}}
+```
+
+#### Multi-User Collaboration Example
+
+**User A sends:**
+```json
+{"type": "insert", "pos": 0, "text": "Hello ", "version": 0}
+```
+
+**Both users receive:**
+```json
+{"type":"operation","op":{"type":"insert","pos":0,"text":"Hello ","len":0,"version":1}}
+```
+
+**User B sends:**
+```json
+{"type": "insert", "pos": 6, "text": "world!", "version": 1}
+```
+
+**Both users receive:**
+```json
+{"type":"operation","op":{"type":"insert","pos":6,"text":"world!","len":0,"version":2}}
+```
+
+**User A sends undo:**
+```json
+{"type": "undo"}
+```
+
+**Both users receive (User A's operation is undone):**
+```json
+{"type":"operation","op":{"type":"delete","pos":0,"text":"","len":6,"version":3}}
+```
+
+### Client Implementation Guidelines
+
+#### Connection Management
+```javascript
+// Example WebSocket client implementation
+const ws = new WebSocket('wss://your-domain/ws/doc/doc-id', [], {
+    headers: {
+        'Authorization': 'Bearer ' + jwt_token
+    }
+});
+
+ws.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+    
+    if (message.type === 'initial_state') {
+        console.log('Connected successfully');
+    } else if (message.type === 'operation') {
+        applyOperation(message.op);
+    } else if (message.type === 'error') {
+        handleError(message);
+    }
+};
+```
+
+#### Operation Sending
+```javascript
+// Send insert operation
+function insertText(pos, text, version) {
+    ws.send(JSON.stringify({
+        type: 'insert',
+        pos: pos,
+        text: text,
+        version: version
+    }));
+}
+
+// Send delete operation
+function deleteText(pos, len, version) {
+    ws.send(JSON.stringify({
+        type: 'delete',
+        pos: pos,
+        len: len,
+        version: version
+    }));
+}
+
+// Send undo operation
+function undoOperation() {
+    ws.send(JSON.stringify({
+        type: 'undo'
+    }));
+}
+```
+
+### Testing the Systemsing-brightgreen.svg)](#) <!-- Placeholder -->
 
 This repository contains the backend for a cloud-native, real-time collaborative document editor, inspired by applications like Google Docs. It is engineered with a **production-grade microservice architecture** using Go, containerized with Docker, and orchestrated with **Kubernetes**. The system provides a robust foundation for building scalable, resilient, and observable distributed systems.
 

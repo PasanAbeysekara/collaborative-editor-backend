@@ -82,7 +82,7 @@ This project serves as a practical, hands-on implementation of modern cloud-nati
 
 ## Getting Started
 
-Follow these instructions to deploy the entire microservice stack to a local Kubernetes cluster.
+Follow these instructions to deploy the entire microservice stack to a local Kubernetes cluster or access a remote deployment.
 
 ### Prerequisites
 
@@ -96,7 +96,7 @@ You must have the following tools installed and configured on your system:
 *   A tool for making API requests like `curl`.
 *   `jq`: A command-line JSON processor, useful for scripting tests.
 
-### Deployment Instructions
+### Local Development Deployment
 
 **1. Start the Kubernetes Cluster**
 
@@ -164,6 +164,27 @@ helm install prometheus prometheus-community/prometheus
 helm install grafana grafana/grafana
 ```
 Wait for all observability pods (`loki-stack-`, `prometheus-`, `grafana-`) to enter the `Running` state.
+
+### Remote/Production Deployment Access
+
+For accessing a remote Kubernetes deployment (e.g., in a cloud environment), you can use port forwarding to access the application through the Ingress controller:
+
+**Port Forward the Ingress Controller**
+
+```sh
+# Forward the ingress controller to make the application accessible locally
+kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80 --address=0.0.0.0
+
+# The application will be accessible at: http://localhost:8080
+# For GitHub Codespaces or similar environments, use the forwarded URL provided by the platform
+```
+
+This command:
+- Forwards port 8080 on your local machine to port 80 of the ingress controller
+- Uses `--address=0.0.0.0` to bind to all interfaces (required for cloud development environments)
+- Allows access to the application as if it were running locally
+
+**Note:** In cloud development environments (like GitHub Codespaces), the forwarded port will be accessible via a generated URL (e.g., `https://miniature-system-vww9j7vqj7ghp5g9-8080.app.github.dev`).
 
 ## 📚 API Documentation (Swagger/OpenAPI)
 
@@ -284,9 +305,54 @@ The documentation is kept in sync with the actual API implementation and include
 
 ## WebSocket API
 
-### Testing the System
+## Testing the System
 
-All interaction with the application now goes through the Minikube Ingress IP.
+### Automated Setup Scripts
+
+This repository includes two setup scripts to help you quickly test the application:
+
+#### `setup.sh` - Local Development Testing
+Use this script when testing with a local Minikube deployment:
+
+```bash
+# Make the script executable and run it
+chmod +x setup.sh
+./setup.sh
+```
+
+This script:
+1. Gets the Minikube IP address
+2. Logs in two test users (assumes they're already registered)
+3. Creates a test document as User A
+4. Shares the document with User B
+5. Exports variables for WebSocket testing
+
+#### `deployed_setup.sh` - Remote/Production Testing
+Use this script when testing with a remote deployment or port-forwarded environment:
+
+```bash
+# Make the script executable and run it
+chmod +x deployed_setup.sh
+./deployed_setup.sh
+```
+
+This script:
+1. Uses a predefined SOURCE_URL (update the URL in the script for your environment)
+2. Performs the same user login and document setup as `setup.sh`
+3. Exports variables for WebSocket testing with the remote URL
+
+**Important:** Before running `deployed_setup.sh`, update the `SOURCE_URL` variable at the top of the script to match your environment:
+```bash
+# For port-forwarded local access
+export SOURCE_URL=localhost:8080
+
+# For GitHub Codespaces or similar cloud environments
+export SOURCE_URL=your-forwarded-url-here.app.github.dev
+```
+
+### Manual Testing Steps
+
+#### For Local Development (Minikube)
 
 **1. Get the Application Entry Point**
 ```sh
@@ -294,63 +360,129 @@ export MINIKUBE_IP=$(minikube ip)
 echo "Application is accessible at: http://$MINIKUBE_IP"
 ```
 
-**2. Run the Automated End-to-End Test Script**
-
-The following script will:
-1.  Register two users.
-2.  Log them in and extract their JWTs.
-3.  Create a new document as User A.
-4.  Share the document with User B.
-5.  Print the exported variables needed for the manual WebSocket test.
-
+**2. Register Test Users**
 ```sh
-#!/bin/bash
-export MINIKUBE_IP=$(minikube ip)
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"email":"owner@example.com", "password":"password123"}' \
+  http://$MINIKUBE_IP/auth/register
 
-echo "--- 1. Registering Users ---"
-curl -X POST -H "Content-Type: application/json" -d '{"email":"owner@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/register
-curl -X POST -H "Content-Type: application/json" -d '{"email":"collab@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/register
-
-echo -e "\n--- 2. Logging in Users ---"
-export TOKEN_A=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"owner@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/login | jq -r .token)
-export TOKEN_B=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"collab@example.com", "password":"password123"}' http://$MINIKUBE_IP/auth/login | jq -r .token)
-
-echo "--- 3. Creating Document ---"
-export DOCUMENT_ID=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN_A" -d '{"title":"Live Test Doc"}' http://$MINIKUBE_IP/documents | jq -r .ID)
-
-echo "--- 4. Sharing Document ---"
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN_A" -d '{"email":"collab@example.com", "role":"editor"}' http://$MINIKUBE_IP/documents/$DOCUMENT_ID/share
-
-echo -e "\n\n✅ Setup Complete! Use these exported variables for WebSocket testing:"
-echo "------------------------------------------------------------------"
-echo "export MINIKUBE_IP=$MINIKUBE_IP"
-echo "export DOCUMENT_ID=$DOCUMENT_ID"
-echo "export TOKEN_A=$TOKEN_A"
-echo "export TOKEN_B=$TOKEN_B"
-echo "------------------------------------------------------------------"
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"email":"collab@example.com", "password":"password123"}' \
+  http://$MINIKUBE_IP/auth/register
 ```
 
-**3. Manual WebSocket Test**
+**3. Run the Setup Script**
+```sh
+./setup.sh
+```
 
-*   **Test Real-Time Editing:**
-    Open two terminals. In Terminal 1, connect as User A. In Terminal 2, connect as User B. (Requires `wscat` and `jq` to be installed).
+#### For Remote/Port-Forwarded Development
 
-    *   **Terminal 1 (User A):**
-        ```sh
-        wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" --header "Authorization: Bearer $TOKEN_A"
-        ```
-    *   **Terminal 2 (User B):**
-        ```sh
-        wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" --header "Authorization: Bearer $TOKEN_B"
-        ```
-    *   In Terminal 1, send an `insert` operation. You should see it appear in Terminal 2.
-        ```json
-        { "type": "insert", "pos": 0, "text": "Hello world", "version": 0 }
-        ```
-    *   In Terminal 2, send an `undo` operation. Both terminals should receive a `delete` operation from the server.
-        ```json
-        { "type": "undo" }
-        ```
+**1. Start Port Forwarding**
+```sh
+kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80 --address=0.0.0.0
+```
+
+**2. Register Test Users**
+```sh
+# Replace localhost:8080 with your actual forwarded URL
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"email":"owner@example.com", "password":"password123"}' \
+  http://localhost:8080/auth/register
+
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"email":"collab@example.com", "password":"password123"}' \
+  http://localhost:8080/auth/register
+```
+
+**3. Update and Run the Deployed Setup Script**
+```sh
+# Edit deployed_setup.sh to set the correct SOURCE_URL
+# Then run:
+./deployed_setup.sh
+```
+
+### WebSocket Real-Time Collaboration Testing
+
+After running either setup script, you'll have the necessary environment variables exported. Use these for WebSocket testing:
+
+#### Testing with Local Minikube
+```sh
+# Open two terminals and run these commands after ./setup.sh
+
+# Terminal 1 (User A - Document Owner)
+wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" \
+  --header "Authorization: Bearer $TOKEN_A"
+
+# Terminal 2 (User B - Collaborator)  
+wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" \
+  --header "Authorization: Bearer $TOKEN_B"
+```
+
+#### Testing with Remote/Port-Forwarded Environment
+```sh
+# Open two terminals and run these commands after ./deployed_setup.sh
+
+# Terminal 1 (User A - Document Owner)
+wscat -c "wss://$SOURCE_URL/ws/doc/$DOCUMENT_ID" \
+  --header "Authorization: Bearer $TOKEN_A"
+
+# Terminal 2 (User B - Collaborator)
+wscat -c "wss://$SOURCE_URL/ws/doc/$DOCUMENT_ID" \
+  --header "Authorization: Bearer $TOKEN_B"
+```
+
+**Note:** Use `ws://` for local HTTP connections and `wss://` for HTTPS connections (common in cloud environments).
+
+#### Interactive Real-Time Operations
+
+Once both WebSocket connections are established, try these operations:
+
+**1. Insert Text (Terminal 1):**
+```json
+{ "type": "insert", "pos": 0, "text": "Hello world!", "version": 0 }
+```
+You should see this operation appear in Terminal 2.
+
+**2. Insert More Text (Terminal 2):**
+```json
+{ "type": "insert", "pos": 12, "text": " How are you?", "version": 1 }
+```
+Both terminals should now show the combined text.
+
+**3. Delete Text (Terminal 1):**
+```json
+{ "type": "delete", "pos": 0, "len": 5, "version": 2 }
+```
+This removes "Hello" from the beginning.
+
+**4. Undo Operation (Terminal 2):**
+```json
+{ "type": "undo" }
+```
+This should undo the last operation performed by User B.
+
+#### Expected WebSocket Response Format
+
+All operations will be broadcast to connected clients in this format:
+```json
+{
+  "type": "insert|delete|undo",
+  "pos": 0,
+  "text": "content",
+  "len": 5,
+  "version": 1,
+  "userId": "user-uuid",
+  "timestamp": "2024-01-01T12:00:00Z"
+}
+```
+
+### Troubleshooting WebSocket Connections
+
+- **Connection Refused:** Verify the application is running and the URL is correct
+- **Authentication Failed:** Check that the JWT token is valid and not expired
+- **Operation Rejected:** Ensure the document version matches the server state
+- **Permission Denied:** Verify the user has access to the document (owner or shared)
 
 ## Accessing the Observability Dashboard (Grafana)
 

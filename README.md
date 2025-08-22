@@ -251,8 +251,7 @@ function undoOperation() {
     }));
 }
 ```
-
-### Testing the Systemsing-brightgreen.svg)](#) <!-- Placeholder -->
+### Testing the System  
 
 This repository contains the backend for a cloud-native, real-time collaborative document editor, inspired by applications like Google Docs. It is engineered with a **production-grade microservice architecture** using Go, containerized with Docker, and orchestrated with **Kubernetes**. The system provides a robust foundation for building scalable, resilient, and observable distributed systems.
 

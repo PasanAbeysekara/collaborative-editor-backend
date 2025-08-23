@@ -407,9 +407,9 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update
 
 # Install the charts
-helm install loki-stack grafana/loki-stack
+helm install loki-stack grafana/loki-stack --version 2.9.11
 helm install prometheus prometheus-community/prometheus
-helm install grafana grafana/grafana
+helm install grafana grafana/grafana --version 6.58.9
 ```
 Wait for all observability pods (`loki-stack-`, `prometheus-`, `grafana-`) to enter the `Running` state.
 

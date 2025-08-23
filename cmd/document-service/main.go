@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	chiPrometheus "github.com/766b/chi-prometheus"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/handlers"
@@ -30,6 +31,7 @@ func main() {
 	docHandler := &handlers.DocumentHandler{Store: store}
 
 	r := chi.NewRouter()
+	r.Use(chiPrometheus.NewMiddleware("document_service"))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(customMiddleware.CORSMiddleware(customMiddleware.GetAllowedOrigins()))

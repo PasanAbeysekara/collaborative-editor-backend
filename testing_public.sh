@@ -1,4 +1,4 @@
-export SOURCE_URL=miniature-system-vww9j7vqj7ghp5g9-8080.app.github.dev
+export SOURCE_URL=supreme-system-wxxpqj7gp743grp7-8080.app.github.dev
 
 echo -e "\n--- 2. Logging in Users ---"
 export TOKEN_A=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"owner@example.com", "password":"password123"}' https://$SOURCE_URL/auth/login | jq -r .token)

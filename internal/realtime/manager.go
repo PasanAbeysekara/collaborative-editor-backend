@@ -134,10 +134,18 @@ func (m *Manager) removeHub(hub *Hub) {
 }
 
 func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
+	// Extract token from query parameter
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Bad Request: Token query parameter is required", http.StatusBadRequest)
+		return
+	}
 
-	userID, ok := r.Context().Value(auth.UserIDKey).(string)
-	if !ok || userID == "" {
-		http.Error(w, "Unauthorized: User ID not found in token", http.StatusUnauthorized)
+	// Validate token and get user ID
+	userID, err := auth.ValidateTokenFromQuery(token)
+	if err != nil {
+		log.Printf("Token validation failed: %v", err)
+		http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 		return
 	}
 

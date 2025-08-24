@@ -62,7 +62,28 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-		next.ServeHTTP(w, r.WithContext(ctx))
+	ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+	next.ServeHTTP(w, r.WithContext(ctx))
+})
+}
+
+// ValidateTokenFromQuery validates a JWT token from a query parameter and returns the user ID
+func ValidateTokenFromQuery(tokenStr string) (string, error) {
+	if tokenStr == "" {
+		return "", fmt.Errorf("token is required")
+	}
+
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return jwtKey, nil
 	})
+
+	if err != nil || !token.Valid {
+		return "", fmt.Errorf("invalid token: %w", err)
+	}
+
+	return claims.UserID, nil
 }

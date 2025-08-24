@@ -33,9 +33,12 @@ func main() {
 
 	r.Handle("/metrics", promhttp.Handler())
 
+	// WebSocket endpoint - handles authentication internally via query parameter
+	r.Get("/ws/doc/{documentID}", rtManager.ServeWS)
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.JWTMiddleware)
-		r.Get("/ws/doc/{documentID}", rtManager.ServeWS)
+		// Add any other endpoints that need JWT middleware here
 	})
 
 	log.Printf("Starting realtime-service on port %s...\n", cfg.Port)

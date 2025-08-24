@@ -559,13 +559,13 @@ The documentation is kept in sync with the actual API implementation and include
 
 This repository includes two setup scripts to help you quickly test the application:
 
-#### `setup.sh` - Local Development Testing
+#### `tesing_locally.sh` - Local Development Testing
 Use this script when testing with a local Minikube deployment:
 
 ```bash
 # Make the script executable and run it
-chmod +x setup.sh
-./setup.sh
+chmod +x tesing_locally.sh
+./tesing_locally.sh
 ```
 
 This script:
@@ -575,21 +575,21 @@ This script:
 4. Shares the document with User B
 5. Exports variables for WebSocket testing
 
-#### `deployed_setup.sh` - Remote/Production Testing
+#### `tesing_public.sh` - Remote/Production Testing
 Use this script when testing with a remote deployment or port-forwarded environment:
 
 ```bash
 # Make the script executable and run it
-chmod +x deployed_setup.sh
-./deployed_setup.sh
+chmod +x tesing_public.sh
+./tesing_public.sh
 ```
 
 This script:
 1. Uses a predefined SOURCE_URL (update the URL in the script for your environment)
-2. Performs the same user login and document setup as `setup.sh`
+2. Performs the same user login and document setup as `tesing_locally.sh`
 3. Exports variables for WebSocket testing with the remote URL
 
-**Important:** Before running `deployed_setup.sh`, update the `SOURCE_URL` variable at the top of the script to match your environment:
+**Important:** Before running `tesing_public.sh`, update the `SOURCE_URL` variable at the top of the script to match your environment:
 ```bash
 # For port-forwarded local access
 export SOURCE_URL=localhost:8080
@@ -621,7 +621,7 @@ curl -X POST -H "Content-Type: application/json" \
 
 **3. Run the Setup Script**
 ```sh
-./setup.sh
+./tesing_locally.sh
 ```
 
 #### For Remote/Port-Forwarded Development
@@ -645,9 +645,9 @@ curl -X POST -H "Content-Type: application/json" \
 
 **3. Update and Run the Deployed Setup Script**
 ```sh
-# Edit deployed_setup.sh to set the correct SOURCE_URL
+# Edit tesing_public.sh to set the correct SOURCE_URL
 # Then run:
-./deployed_setup.sh
+./tesing_public.sh
 ```
 
 ### WebSocket Real-Time Collaboration Testing
@@ -656,7 +656,7 @@ After running either setup script, you'll have the necessary environment variabl
 
 #### Testing with Local Minikube
 ```sh
-# Open two terminals and run these commands after ./setup.sh
+# Open two terminals and run these commands after ./tesing_locally.sh
 
 # Terminal 1 (User A - Document Owner)
 wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" \
@@ -669,7 +669,7 @@ wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" \
 
 #### Testing with Remote/Port-Forwarded Environment
 ```sh
-# Open two terminals and run these commands after ./deployed_setup.sh
+# Open two terminals and run these commands after ./tesing_public.sh
 
 # Terminal 1 (User A - Document Owner)
 wscat -c "wss://$SOURCE_URL/ws/doc/$DOCUMENT_ID" \

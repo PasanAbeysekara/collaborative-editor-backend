@@ -13,9 +13,9 @@ The WebSocket API provides real-time collaborative document editing capabilities
 
 **Endpoint:** `wss://your-domain/ws/doc/{documentId}` or `ws://localhost/ws/doc/{documentId}`
 
-**Authentication:** Required via `Authorization` header with Bearer token
+**Authentication:** Required via `token` query parameter
 ```bash
-wscat -c "wss://your-domain/ws/doc/{documentId}" --header "Authorization: Bearer {jwt_token}"
+wscat -c "wss://your-domain/ws/doc/{documentId}?token={jwt_token}"
 ```
 
 ### Message Format Specification
@@ -138,7 +138,7 @@ The server broadcasts operations to all connected clients in this format:
 
 **1. Connect to Document:**
 ```bash
-wscat -c "wss://your-domain/ws/doc/doc-uuid" --header "Authorization: Bearer jwt-token"
+wscat -c "wss://your-domain/ws/doc/doc-uuid?token=jwt-token"
 ```
 
 **2. Receive Initial State:**
@@ -203,11 +203,7 @@ wscat -c "wss://your-domain/ws/doc/doc-uuid" --header "Authorization: Bearer jwt
 #### Connection Management
 ```javascript
 // Example WebSocket client implementation
-const ws = new WebSocket('wss://your-domain/ws/doc/doc-id', [], {
-    headers: {
-        'Authorization': 'Bearer ' + jwt_token
-    }
-});
+const ws = new WebSocket(`wss://your-domain/ws/doc/doc-id?token=${jwt_token}`);
 
 ws.onmessage = (event) => {
     const message = JSON.parse(event.data);
@@ -304,7 +300,8 @@ This project serves as a practical, hands-on implementation of modern cloud-nati
 
 ### 🔐 **Authentication & Authorization**
 - **JWT-based authentication** for all protected endpoints
-- **Bearer token authorization** with secure token validation
+- **Bearer token authorization** for REST API endpoints with secure token validation
+- **Query parameter authentication** for WebSocket connections (`?token=jwt_token`)
 - **Role-based access control** for document sharing (owner, editor, viewer)
 - **Password hashing** using bcrypt for secure credential storage
 
@@ -491,8 +488,12 @@ This project includes comprehensive API documentation using OpenAPI 3.0.3 specif
 - `POST /documents/{id}/share` - Share document with other users
 - `GET /documents/{id}/permissions/{userId}` - Check user permissions
 
+*Note: Document endpoints use Bearer token authentication via Authorization header*
+
 #### **Real-time Collaboration**
 - `GET /ws/doc/{documentId}` - WebSocket endpoint for live collaboration
+
+*Note: WebSocket endpoint uses token authentication via query parameter (`?token=jwt_token`)*
 
 #### **Monitoring & Health**
 - `GET /metrics` - Prometheus metrics for monitoring
@@ -500,9 +501,10 @@ This project includes comprehensive API documentation using OpenAPI 3.0.3 specif
 ### 🔐 **Authentication in Documentation**
 
 The Swagger documentation includes:
-- **Bearer Token Authentication** setup
+- **Bearer Token Authentication** setup for REST API endpoints
+- **Query Parameter Authentication** for WebSocket connections
 - **JWT token examples** and format
-- **Authorization headers** for protected endpoints
+- **Authorization headers** for protected REST endpoints
 - **Error responses** for unauthorized access
 
 ### 💡 **Key Features**
@@ -559,13 +561,13 @@ The documentation is kept in sync with the actual API implementation and include
 
 This repository includes two setup scripts to help you quickly test the application:
 
-#### `setup.sh` - Local Development Testing
+#### `testing_locally.sh` - Local Development Testing
 Use this script when testing with a local Minikube deployment:
 
 ```bash
 # Make the script executable and run it
-chmod +x setup.sh
-./setup.sh
+chmod +x testing_locally.sh
+./testing_locally.sh
 ```
 
 This script:
@@ -575,21 +577,21 @@ This script:
 4. Shares the document with User B
 5. Exports variables for WebSocket testing
 
-#### `deployed_setup.sh` - Remote/Production Testing
+#### `testing_public.sh` - Remote/Production Testing
 Use this script when testing with a remote deployment or port-forwarded environment:
 
 ```bash
 # Make the script executable and run it
-chmod +x deployed_setup.sh
-./deployed_setup.sh
+chmod +x testing_public.sh
+./testing_public.sh
 ```
 
 This script:
 1. Uses a predefined SOURCE_URL (update the URL in the script for your environment)
-2. Performs the same user login and document setup as `setup.sh`
+2. Performs the same user login and document setup as `testing_locally.sh`
 3. Exports variables for WebSocket testing with the remote URL
 
-**Important:** Before running `deployed_setup.sh`, update the `SOURCE_URL` variable at the top of the script to match your environment:
+**Important:** Before running `testing_public.sh`, update the `SOURCE_URL` variable at the top of the script to match your environment:
 ```bash
 # For port-forwarded local access
 export SOURCE_URL=localhost:8080
@@ -621,7 +623,7 @@ curl -X POST -H "Content-Type: application/json" \
 
 **3. Run the Setup Script**
 ```sh
-./setup.sh
+./testing_locally.sh
 ```
 
 #### For Remote/Port-Forwarded Development
@@ -645,9 +647,9 @@ curl -X POST -H "Content-Type: application/json" \
 
 **3. Update and Run the Deployed Setup Script**
 ```sh
-# Edit deployed_setup.sh to set the correct SOURCE_URL
+# Edit testing_public.sh to set the correct SOURCE_URL
 # Then run:
-./deployed_setup.sh
+./testing_public.sh
 ```
 
 ### WebSocket Real-Time Collaboration Testing
@@ -656,28 +658,24 @@ After running either setup script, you'll have the necessary environment variabl
 
 #### Testing with Local Minikube
 ```sh
-# Open two terminals and run these commands after ./setup.sh
+# Open two terminals and run these commands after ./testing_locally.sh
 
 # Terminal 1 (User A - Document Owner)
-wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" \
-  --header "Authorization: Bearer $TOKEN_A"
+wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID?token=$TOKEN_A"
 
 # Terminal 2 (User B - Collaborator)  
-wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID" \
-  --header "Authorization: Bearer $TOKEN_B"
+wscat -c "ws://$MINIKUBE_IP/ws/doc/$DOCUMENT_ID?token=$TOKEN_B"
 ```
 
 #### Testing with Remote/Port-Forwarded Environment
 ```sh
-# Open two terminals and run these commands after ./deployed_setup.sh
+# Open two terminals and run these commands after ./testing_public.sh
 
 # Terminal 1 (User A - Document Owner)
-wscat -c "wss://$SOURCE_URL/ws/doc/$DOCUMENT_ID" \
-  --header "Authorization: Bearer $TOKEN_A"
+wscat -c "wss://$SOURCE_URL/ws/doc/$DOCUMENT_ID?token=$TOKEN_A"
 
 # Terminal 2 (User B - Collaborator)
-wscat -c "wss://$SOURCE_URL/ws/doc/$DOCUMENT_ID" \
-  --header "Authorization: Bearer $TOKEN_B"
+wscat -c "wss://$SOURCE_URL/ws/doc/$DOCUMENT_ID?token=$TOKEN_B"
 ```
 
 **Note:** Use `ws://` for local HTTP connections and `wss://` for HTTPS connections (common in cloud environments).

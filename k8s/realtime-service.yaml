@@ -45,6 +45,11 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: DOCUMENT_SERVICE_URL
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: RABBITMQ_URL
 ---
 apiVersion: v1
 kind: Service

@@ -13,6 +13,7 @@ const (
 type ServerMessage struct {
 	Type    ServerMessageType `json:"type"`
 	Content string            `json:"content,omitempty"` // For initial state
+	Version int               `json:"version,omitempty"` // <<< ADD THIS LINE
 	Op      *Operation        `json:"op,omitempty"`      // For operations
 }
 

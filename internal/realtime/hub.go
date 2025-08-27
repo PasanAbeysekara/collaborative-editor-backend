@@ -71,6 +71,7 @@ func (h *Hub) run() {
 			initialStateMsg := &ServerMessage{
 				Type:    MsgInitialState,
 				Content: h.content,
+				Version: h.version,
 			}
 			select {
 			case client.send <- initialStateMsg:

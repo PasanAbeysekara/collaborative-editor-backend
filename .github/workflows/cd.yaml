@@ -1,0 +1,46 @@
+name: CD - Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["CI - Build and Push Docker Images"] # Trigger after the CI workflow
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} # Only run if CI succeeded
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+      
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+          
+      - name: Update Kubernetes manifests
+        run: |
+          # Get the commit SHA from the completed CI workflow
+          COMMIT_SHA=${{ github.event.workflow_run.head_sha }}
+          DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+
+          echo "Updating image tags to commit SHA: $COMMIT_SHA"
+
+          # Use yq to update the image tag in each deployment file
+          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/user-service:$COMMIT_SHA\"" k8s/user-service.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/document-service:$COMMIT_SHA\"" k8s/document-service.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/realtime-service:$COMMIT_SHA\"" k8s/realtime-service.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/notification-service:$COMMIT_SHA\"" k8s/notification-service.yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl config get-contexts
+          kubectl apply -f k8s/

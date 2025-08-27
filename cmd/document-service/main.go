@@ -14,10 +14,18 @@ import (
 	customMiddleware "github.com/pasanAbeysekara/collaborative-editor/internal/middleware"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
 	cfg := config.Load()
+	conn, err := amqp091.Dial(cfg.RabbitMQ_URL)
+	if err != nil { log.Fatalf("Failed to connect to RabbitMQ: %v", err) }
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil { log.Fatalf("Failed to open a channel: %v", err) }
+	defer ch.Close()
 	auth.Initialize(cfg)
 
 	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
@@ -27,7 +35,7 @@ func main() {
 	defer pool.Close()
 
 	var store storage.Store = storage.NewPostgresStore(pool)
-	docHandler := &handlers.DocumentHandler{Store: store}
+    docHandler := &handlers.DocumentHandler{Store: store, AMQPChannel: ch}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

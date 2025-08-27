@@ -1,30 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: document-service-deployment
+  name: notification-service-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: document-service
+      app: notification-service
   template:
     metadata:
       labels:
-        app: document-service
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: "8080"
+        app: notification-service
     spec:
       containers:
-      - name: document-service
-        image: document-service:v1
+      - name: notification-service
+        image: notification-service:v1
         imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 8080
         env:
-        - name: PORT
-          value: "8080"
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
@@ -40,20 +32,13 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: REDIS_URL
+        - name: DOCUMENT_SERVICE_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DOCUMENT_SERVICE_URL
         - name: RABBITMQ_URL
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: RABBITMQ_URL
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: document-service
-spec:
-  selector:
-    app: document-service
-  ports:
-  - protocol: TCP
-    port: 8080
-    targetPort: 8080

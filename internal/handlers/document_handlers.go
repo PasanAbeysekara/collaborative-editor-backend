@@ -10,10 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type DocumentHandler struct {
-	Store storage.Store
+	Store       storage.Store
+	AMQPChannel *amqp091.Channel // Add this
 }
 
 type CreateDocumentRequest struct {
@@ -44,13 +46,11 @@ func (h *DocumentHandler) CreateDocument(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Validate required fields
 	if req.Title == "" {
 		http.Error(w, "Title is required", http.StatusBadRequest)
 		return
 	}
 
-	// Content can be empty, but if not provided, default to empty string
 	if req.Content == "" {
 		req.Content = ""
 	}
@@ -114,6 +114,26 @@ func (h *DocumentHandler) ShareDocument(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Failed to share document", http.StatusInternalServerError)
 		log.Printf("Error sharing document: %v", err)
 		return
+	}
+
+	eventBody, _ := json.Marshal(map[string]string{
+		"document_id": documentID,
+		"shared_with_user_id": targetUser.ID,
+		"shared_by_user_id": ownerID,
+	})
+
+	err = h.AMQPChannel.PublishWithContext(r.Context(),
+		"events",        // exchange
+		"user.invited",  // routing key
+		false,           // mandatory
+		false,           // immediate
+		amqp091.Publishing{
+			ContentType: "application/json",
+			Body:        eventBody,
+		})
+
+	if err != nil {
+		log.Printf("WARN: Failed to publish user.invited event for doc %s: %v", documentID, err)
 	}
 
 	w.WriteHeader(http.StatusOK)

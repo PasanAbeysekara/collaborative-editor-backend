@@ -1,26 +1,35 @@
-name: CD - Deploy to Kubernetes
+# .github/workflows/cd.yml
+name: CD - Deploy to Amazon EKS
 
 on:
   workflow_run:
-    workflows: ["CI - Build and Push Docker Images"] # Trigger after the CI workflow
+    workflows: ["CI - Build and Push to ECR"]
     types:
       - completed
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }} # Only run if CI succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Kubeconfig
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set up Kubeconfig for EKS
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
-          chmod 600 ~/.kube/config
-      
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name collaborative-editor-cluster
+
       - name: Install yq
         run: |
           sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
@@ -28,19 +37,21 @@ jobs:
           
       - name: Update Kubernetes manifests
         run: |
-          # Get the commit SHA from the completed CI workflow
           COMMIT_SHA=${{ github.event.workflow_run.head_sha }}
-          DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          # Get AWS Account ID from the caller identity
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          AWS_REGION=${{ secrets.AWS_REGION }}
 
           echo "Updating image tags to commit SHA: $COMMIT_SHA"
 
-          # Use yq to update the image tag in each deployment file
-          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/user-service:$COMMIT_SHA\"" k8s/user-service.yaml
-          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/document-service:$COMMIT_SHA\"" k8s/document-service.yaml
-          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/realtime-service:$COMMIT_SHA\"" k8s/realtime-service.yaml
-          yq -i ".spec.template.spec.containers[0].image = \"$DOCKER_USERNAME/notification-service:$COMMIT_SHA\"" k8s/notification-service.yaml
+          # Define the base ECR path
+          ECR_BASE_PATH="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+          yq -i ".spec.template.spec.containers[0].image = \"$ECR_BASE_PATH/user-service:$COMMIT_SHA\"" k8s/user-service.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"$ECR_BASE_PATH/document-service:$COMMIT_SHA\"" k8s/document-service.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"$ECR_BASE_PATH/realtime-service:$COMMIT_SHA\"" k8s/realtime-service.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"$ECR_BASE_PATH/notification-service:$COMMIT_SHA\"" k8s/notification-service.yaml
 
       - name: Deploy to Kubernetes
         run: |
-          kubectl config get-contexts
           kubectl apply -f k8s/

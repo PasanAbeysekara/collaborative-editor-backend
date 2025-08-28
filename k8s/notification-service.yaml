@@ -12,10 +12,42 @@ spec:
       labels:
         app: notification-service
     spec:
+      initContainers:
+      - name: wait-for-rabbitmq
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Waiting for RabbitMQ..."
+            until nc -z rabbitmq 5672; do
+              echo "RabbitMQ is unavailable - sleeping"
+              sleep 2
+            done
+            echo "RabbitMQ is ready!"
       containers:
       - name: notification-service
         image: notification-service:v1
         imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - "pgrep -f server"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - "pgrep -f server"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 5
         env:
         - name: DATABASE_URL
           valueFrom:

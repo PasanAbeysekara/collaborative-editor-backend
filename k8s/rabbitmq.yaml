@@ -19,6 +19,24 @@ spec:
         ports:
         - containerPort: 5672  # AMQP port for applications
         - containerPort: 15672 # Management UI port
+        readinessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - ping
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          timeoutSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - ping
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
         env:
         # Default user/pass for local dev. Use secrets in production.
         - name: RABBITMQ_DEFAULT_USER

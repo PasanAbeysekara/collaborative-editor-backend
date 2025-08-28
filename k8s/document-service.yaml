@@ -16,12 +16,40 @@ spec:
         prometheus.io/path: "/metrics"
         prometheus.io/port: "8080"
     spec:
+      initContainers:
+      - name: wait-for-rabbitmq
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Waiting for RabbitMQ..."
+            until nc -z rabbitmq 5672; do
+              echo "RabbitMQ is unavailable - sleeping"
+              sleep 2
+            done
+            echo "RabbitMQ is ready!"
       containers:
       - name: document-service
         image: document-service:v1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         env:
         - name: PORT
           value: "8080"

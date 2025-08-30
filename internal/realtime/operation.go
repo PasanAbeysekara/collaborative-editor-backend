@@ -7,14 +7,17 @@ type ServerMessageType string
 const (
 	MsgInitialState ServerMessageType = "initial_state"
 	MsgOperation    ServerMessageType = "operation"
+	MsgOutOfSync ServerMessageType = "out_of_sync"
+	MsgError     ServerMessageType = "error"
 )
 
 // wrapper for all messages sent to clients.
 type ServerMessage struct {
 	Type    ServerMessageType `json:"type"`
-	Content string            `json:"content,omitempty"` // For initial state
-	Version int               `json:"version,omitempty"` // <<< ADD THIS LINE
+	Content string            `json:"content,omitempty"` // For initial state and sync
+	Version int               `json:"version,omitempty"` // For initial state and sync
 	Op      *Operation        `json:"op,omitempty"`      // For operations
+	Error   string            `json:"error,omitempty"`   // For error messages
 }
 
 const (

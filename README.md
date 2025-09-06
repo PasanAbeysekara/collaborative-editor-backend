@@ -405,9 +405,9 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update
 
 # Install the charts
-helm install loki-stack grafana/loki-stack
+helm install loki-stack grafana/loki-stack --version 2.9.11
 helm install prometheus prometheus-community/prometheus
-helm install grafana grafana/grafana
+helm install grafana grafana/grafana --version 6.58.9
 ```
 Wait for all observability pods (`loki-stack-`, `prometheus-`, `grafana-`) to enter the `Running` state.
 
@@ -750,13 +750,6 @@ All operations will be broadcast to connected clients in this format:
     *   **Add Loki:** URL: `http://loki-stack:3100`
 
 You can now use the **Explore** tab to view logs from all services (via Loki) and performance metrics (via Prometheus).
-
-## Roadmap / Future Work
-
--   [ ] **Phase 3: Distributed Tracing**: Instrument services with OpenTelemetry and deploy Jaeger to visualize request flows across the microservice architecture.
--   [ ] **Phase 4: Resilience Patterns**: Implement Circuit Breakers in the `realtime-service` to gracefully handle failures or slowdowns in the `document-service`.
--   [ ] **Phase 4: Event-Driven Architecture**: Decouple services further by introducing a message broker like NATS for asynchronous communication (e.g., publishing a `DocumentUpdated` event instead of a synchronous save).
--   [ ] **Full OT Algorithm**: Implement a complete Operational Transformation (OT) algorithm to resolve concurrent editing conflicts instead of simple version rejection.
 
 ## Cleaning Up
 

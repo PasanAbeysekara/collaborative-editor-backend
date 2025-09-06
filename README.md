@@ -277,7 +277,8 @@ This project serves as a practical, hands-on implementation of modern cloud-nati
 ## Architecture & Technology Stack
 
 ### Architecture Diagram
-<img width="5007" height="1998" alt="image (9)" src="https://github.com/user-attachments/assets/31074e3f-1713-4652-b70d-6e7de1ab800a" />
+<img width="945" height="551" alt="collaborative-editor drawio (1)" src="https://github.com/user-attachments/assets/6fb5b86f-3364-4eee-93bc-2f2a6e760415" />
+
 
 ### Technology Table
 

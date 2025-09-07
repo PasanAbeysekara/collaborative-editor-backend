@@ -394,6 +394,9 @@ Verify that all application pods are running successfully:
 ```sh
 kubectl get pods
 ```
+<img width="851" height="371" alt="image" src="https://github.com/user-attachments/assets/da8381aa-d214-4a1a-94c6-98021dbf0b66" />
+<img width="979" height="398" alt="image" src="https://github.com/user-attachments/assets/aff5a57e-c1a2-44e1-9df4-ed84c44718b0" />
+
 
 **5. Deploy the Observability Stack**
 
@@ -455,6 +458,10 @@ This project includes comprehensive API documentation using OpenAPI 3.0.3 specif
    ```
    http://localhost:8000/api-docs.html
    ```
+<img width="1916" height="932" alt="image" src="https://github.com/user-attachments/assets/35b3e097-f518-4110-b5d4-3fe7314ea73a" />
+<img width="1897" height="932" alt="image" src="https://github.com/user-attachments/assets/89b7c7ae-0f9c-4853-b41e-a4d271bf5408" />
+<img width="1889" height="890" alt="image" src="https://github.com/user-attachments/assets/e9b3755e-ffcc-4c42-8331-8d5836540957" />
+
 
 #### **Option 2: Online Swagger Editor**
 1. Go to [editor.swagger.io](https://editor.swagger.io)
@@ -750,6 +757,24 @@ All operations will be broadcast to connected clients in this format:
     *   **Add Loki:** URL: `http://loki-stack:3100`
 
 You can now use the **Explore** tab to view logs from all services (via Loki) and performance metrics (via Prometheus).
+
+### Grafana UI
+
+<img width="1604" height="782" alt="image" src="https://github.com/user-attachments/assets/9b15a7f5-b980-43f4-ba60-bc10947f0ac8" />
+
+###  view logs from user service
+
+<img width="1600" height="781" alt="image" src="https://github.com/user-attachments/assets/b1bd391d-0a97-4fe0-894d-c32bfb03ccee" />
+
+<img width="1596" height="780" alt="image" src="https://github.com/user-attachments/assets/200afb72-cce0-4ad3-953c-49492bb2b06a" />
+
+###  view performance metrics of user service
+
+<img width="1601" height="821" alt="image" src="https://github.com/user-attachments/assets/949ca835-acd3-4d1d-8957-59aa86c90186" />
+
+<img width="1596" height="701" alt="image" src="https://github.com/user-attachments/assets/419ebdbd-5bcf-4313-a471-11177c399aa6" />
+
+
 
 ## Cleaning Up
 

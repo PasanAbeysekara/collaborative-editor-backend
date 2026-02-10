@@ -360,6 +360,118 @@ This project serves as a practical, hands-on implementation of modern cloud-nati
 
 ## Architecture & Technology Stack
 
+### Communication Architecture
+
+This system uses a **hybrid communication architecture** combining three protocols for optimal performance and functionality:
+
+#### 📡 Communication Protocols Overview
+
+```
+┌─────────────────┐
+│  Web Client     │
+└────────┬────────┘
+         │
+         │ REST/HTTP (Port 8081)
+         │
+    ┌────▼─────────────┐
+    │  API Gateway     │
+    └────┬─────────────┘
+         │
+         │ gRPC (Internal)
+         │
+    ┌────┴─────────────────────────────┐
+    │                                   │
+┌───▼──────────┐              ┌────────▼────────┐
+│ User Service │              │ Document Service│
+│ HTTP: 8080   │              │  HTTP: 8080     │
+│ gRPC: 50051  │              │  gRPC: 50052    │
+└──────────────┘              └─────────────────┘
+                                       │
+                                       │ gRPC
+                              ┌────────▼────────────┐
+                              │ Notification Service│
+                              │   gRPC: 50053       │
+                              └─────────────────────┘
+
+┌─────────────────┐
+│  Web Client     │
+└────────┬────────┘
+         │
+         │ WebSocket (Port 8084)
+         │
+    ┌────▼─────────────────┐
+    │ Real-Time Service    │
+    │   HTTP: 8084         │
+    └────┬─────────────────┘
+         │
+         │ gRPC (Internal)
+         │
+    ┌────┴──────────────────────────┐
+    │                                │
+┌───▼──────────┐          ┌─────────▼──────┐
+│Document Svc  │          │Notification Svc │
+└──────────────┘          └────────────────┘
+```
+
+#### 🔄 Protocol Usage
+
+| Protocol | Use Case | Endpoints | Benefits |
+|----------|----------|-----------|----------|
+| **REST/HTTP** | External API access | `/auth/*`, `/documents/*` | Standard, widely supported, easy debugging |
+| **gRPC** | Inter-service communication | Internal service-to-service | High performance, type-safe, efficient binary protocol |
+| **WebSocket** | Real-time collaboration | `/ws/doc/{documentId}` | Bi-directional, low latency, persistent connections |
+
+#### 📍 Service Communication Matrix
+
+| From | To | Protocol | Purpose |
+|------|-----|----------|---------|
+| Web Client | API Gateway | REST/HTTP | CRUD operations, authentication |
+| API Gateway | User Service | gRPC | User authentication, user lookup |
+| API Gateway | Document Service | gRPC | Document operations, sharing |
+| Web Client | Real-Time Service | WebSocket | Live document editing |
+| Real-Time Service | Document Service | gRPC | Document sync, permission checks |
+| Document Service | Notification Service | gRPC | Send share notifications |
+| Real-Time Service | User Service | gRPC | User presence, authentication |
+
+#### 🎯 Why This Hybrid Approach?
+
+1. **REST for External APIs**
+   - Browser/mobile compatibility
+   - Easy testing with standard tools (curl, Postman)
+   - OpenAPI/Swagger documentation
+   - Standard HTTP caching
+
+2. **gRPC for Internal Communication**
+   - 7-10x faster than REST for inter-service calls
+   - Strong typing via Protocol Buffers
+   - Built-in load balancing and service discovery
+   - Supports streaming (future enhancement)
+   - Automatic code generation for multiple languages
+
+3. **WebSocket for Real-Time Features**
+   - Full-duplex communication
+   - Low latency for collaborative editing
+   - Efficient for frequent updates
+   - Single persistent connection per client
+
+#### 🔧 gRPC Implementation
+
+All services expose both HTTP (for backward compatibility and external access) and gRPC endpoints:
+
+**Protocol Buffer Definitions:** `proto/`
+- `user.proto` - User authentication and management
+- `document.proto` - Document CRUD and sharing
+- `notification.proto` - Notification service
+
+**gRPC Clients:** `internal/grpcclient/`
+- Type-safe client libraries for all services
+- Built-in timeout and retry logic
+- Connection pooling
+
+See [GRPC_GUIDE.md](GRPC_GUIDE.md) for detailed gRPC setup and usage instructions.
+
+---
+
 ### Architecture Diagram
 
 <img width="945" height="551" alt="collaborative-editor drawio (1)" src="https://github.com/user-attachments/assets/6fb5b86f-3364-4eee-93bc-2f2a6e760415" />
@@ -373,9 +485,11 @@ This project serves as a practical, hands-on implementation of modern cloud-nati
 | **Orchestration**    | **Kubernetes (Minikube)**                                 | Production-grade deployment, scaling, and self-healing    |
 | **API Gateway**      | **NGINX Ingress Controller**                              | Manages and routes all external HTTP/WebSocket traffic    |
 | **Web Framework**    | [Chi](https://github.com/go-chi/chi)                      | Lightweight and idiomatic HTTP router                     |
+| **Inter-Service**    | **gRPC + Protocol Buffers**                               | Efficient, type-safe inter-service communication          |
 | **Real-time**        | [Gorilla WebSocket](https://github.com/gorilla/websocket) | Robust and battle-tested WebSocket library                |
 | **Primary Database** | **PostgreSQL (Remote/Cloud)**                             | Reliable, persistent storage for users & documents        |
 | **In-Memory Cache**  | **Redis**                                                 | High-speed session state and operation (undo) stack       |
+| **Message Queue**    | **RabbitMQ**                                              | Asynchronous event-driven notifications                   |
 | **Observability**    | **Prometheus, Grafana, Loki**                             | Centralized metrics, dashboards, and logging              |
 | **Deployment**       | **Helm**                                                  | Package manager for deploying the observability stack     |
 | **Configuration**    | **Kubernetes Secrets**                                    | Secure, declarative management of sensitive configuration |
@@ -415,6 +529,132 @@ This project serves as a practical, hands-on implementation of modern cloud-nati
 * Configure proper CORS policies for your frontend domain
 * Use secrets management systems (Kubernetes secrets, AWS Secrets Manager, etc.)
 * Enable audit logging for security monitoring
+* Secure gRPC endpoints with TLS/mTLS in production
+* Use gRPC authentication interceptors for service-to-service auth
+
+---
+
+## gRPC Setup & Usage
+
+This project uses **gRPC with Protocol Buffers** for efficient inter-service communication. All services expose both HTTP REST endpoints (for external clients) and gRPC endpoints (for internal service-to-service communication).
+
+### 🚀 Quick Start with gRPC
+
+#### 1. Install Protocol Buffer Compiler
+
+**Windows (PowerShell):**
+```powershell
+# Using Chocolatey
+choco install protoc
+
+# Or download manually from: https://github.com/protocolbuffers/protobuf/releases
+```
+
+**Linux/macOS:**
+```bash
+# Ubuntu/Debian
+sudo apt install protobuf-compiler
+
+# macOS
+brew install protobuf
+```
+
+#### 2. Install Go Plugins
+
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+```
+
+#### 3. Generate gRPC Code
+
+**Windows:**
+```powershell
+.\generate_proto.ps1
+```
+
+**Linux/macOS:**
+```bash
+chmod +x generate_proto.sh
+./generate_proto.sh
+```
+
+#### 4. Install Dependencies
+
+```bash
+go mod tidy
+```
+
+### 📡 gRPC Service Ports
+
+| Service | HTTP Port | gRPC Port | Purpose |
+|---------|-----------|-----------|---------|
+| User Service | 8080 | 50051 | Authentication, user management |
+| Document Service | 8080 | 50052 | Document CRUD, sharing |
+| Notification Service | - | 50053 | Notifications |
+
+### 📝 Using gRPC Clients
+
+The project includes ready-to-use gRPC client libraries in `internal/grpcclient/`:
+
+**Example: Calling User Service**
+```go
+import "github.com/pasanAbeysekara/collaborative-editor/internal/grpcclient"
+
+// Connect to user-service
+client, err := grpcclient.NewUserServiceClient("user-service:50051")
+if err != nil {
+    log.Fatal(err)
+}
+defer client.Close()
+
+// Get user by email
+user, err := client.GetUserByEmail(context.Background(), "user@example.com")
+```
+
+**Example: Checking Document Permission**
+```go
+// Connect to document-service
+docClient, err := grpcclient.NewDocumentServiceClient("document-service:50052")
+if err != nil {
+    log.Fatal(err)
+}
+defer docClient.Close()
+
+// Check if user has permission
+result, err := docClient.CheckPermission(ctx, "doc-123", "user-456")
+if result.HasPermission {
+    // User has access
+}
+```
+
+### 🧪 Testing gRPC Endpoints
+
+**Using grpcurl:**
+```bash
+# List all services
+grpcurl -plaintext localhost:50051 list
+
+# Call a method
+grpcurl -plaintext \
+  -d '{"email": "test@example.com"}' \
+  localhost:50051 proto.UserService/GetUserByEmail
+```
+
+**Using BloomRPC or Postman:**
+- Import proto files from `proto/` directory
+- Connect to `localhost:50051` (User Service)
+- Test endpoints interactively
+
+### 📚 Full gRPC Documentation
+
+For complete details on:
+- Protocol Buffer definitions
+- All available gRPC methods
+- Client implementation examples
+- Troubleshooting
+
+See **[GRPC_GUIDE.md](GRPC_GUIDE.md)** and **[examples/grpc_client_examples.go](examples/grpc_client_examples.go)**
 
 ---
 

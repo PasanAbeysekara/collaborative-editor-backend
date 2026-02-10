@@ -1,0 +1,71 @@
+name: Database Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      migration_direction:
+        description: 'Migration direction'
+        required: true
+        default: 'up'
+        type: choice
+        options:
+          - up
+          - down
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+      
+      - name: Install migrate tool
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+          migrate -version
+      
+      - name: Run migrations
+        run: |
+          DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          
+          echo "Running migrations ${{ inputs.migration_direction }} on ${{ inputs.environment }}..."
+          
+          if [ "${{ inputs.migration_direction }}" == "up" ]; then
+            migrate -path ./migrations -database "$DATABASE_URL" up
+          else
+            migrate -path ./migrations -database "$DATABASE_URL" down 1
+          fi
+      
+      - name: Verify migration
+        run: |
+          DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          migrate -path ./migrations -database "$DATABASE_URL" version
+      
+      - name: Migration summary
+        run: |
+          echo "## Migration Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Direction: ${{ inputs.migration_direction }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ✅ Completed" >> $GITHUB_STEP_SUMMARY

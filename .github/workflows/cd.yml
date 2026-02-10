@@ -1,0 +1,160 @@
+name: CD - Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["CI - Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    permissions:
+      contents: read
+      packages: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "ENVIRONMENT=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "ENVIRONMENT=production" >> $GITHUB_OUTPUT
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+      
+      - name: Update image tags in deployments
+        run: |
+          BRANCH_NAME=${GITHUB_REF##*/}
+          IMAGE_TAG="${BRANCH_NAME}-${GITHUB_SHA::7}"
+          REGISTRY="ghcr.io/${{ github.repository }}"
+          
+          # Update image tags for all services
+          sed -i "s|image: user-service:.*|image: ${REGISTRY}/user-service:${IMAGE_TAG}|g" k8s/user-service-deployment.yaml
+          sed -i "s|image: document-service:.*|image: ${REGISTRY}/document-service:${IMAGE_TAG}|g" k8s/document-service-deployment.yaml
+          sed -i "s|image: realtime-service:.*|image: ${REGISTRY}/realtime-service:${IMAGE_TAG}|g" k8s/realtime-service-deployment.yaml
+          sed -i "s|image: notification-service:.*|image: ${REGISTRY}/notification-service:${IMAGE_TAG}|g" k8s/notification-service-deployment.yaml
+          
+          # Update imagePullPolicy to Always for production
+          if [ "${{ steps.set-env.outputs.ENVIRONMENT }}" == "production" ]; then
+            sed -i "s|imagePullPolicy: IfNotPresent|imagePullPolicy: Always|g" k8s/*-deployment.yaml
+          fi
+      
+      - name: Create imagePullSecret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+      
+      - name: Update deployments to use imagePullSecret
+        run: |
+          for file in k8s/*-deployment.yaml; do
+            if ! grep -q "imagePullSecrets" "$file"; then
+              sed -i '/spec:/a\      imagePullSecrets:\n      - name: ghcr-secret' "$file"
+            fi
+          done
+      
+      - name: Deploy infrastructure (Redis, RabbitMQ)
+        run: |
+          kubectl apply -f k8s/redis.yaml
+          kubectl apply -f k8s/rabbitmq.yaml
+          
+          # Wait for infrastructure to be ready
+          kubectl wait --for=condition=ready pod -l app=redis --timeout=300s || true
+          kubectl wait --for=condition=ready pod -l app=rabbitmq --timeout=300s || true
+      
+      - name: Apply secrets
+        run: |
+          # Create secrets from GitHub secrets
+          kubectl create secret generic app-secrets \
+            --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --from-literal=REDIS_URL="${{ secrets.REDIS_URL }}" \
+            --from-literal=RABBITMQ_URL="${{ secrets.RABBITMQ_URL }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+      
+      - name: Deploy services
+        run: |
+          # Deploy all services
+          kubectl apply -f k8s/user-service-deployment.yaml
+          kubectl apply -f k8s/user-service-service.yaml
+          
+          kubectl apply -f k8s/document-service-deployment.yaml
+          kubectl apply -f k8s/document-service-service.yaml
+          
+          kubectl apply -f k8s/realtime-service-deployment.yaml
+          kubectl apply -f k8s/realtime-service-service.yaml
+          
+          kubectl apply -f k8s/notification-service-deployment.yaml
+      
+      - name: Deploy ingress
+        run: |
+          kubectl apply -f k8s/ingress.yaml
+      
+      - name: Wait for deployments
+        run: |
+          kubectl rollout status deployment/user-service-deployment --timeout=5m
+          kubectl rollout status deployment/document-service-deployment --timeout=5m
+          kubectl rollout status deployment/realtime-service-deployment --timeout=5m
+          kubectl rollout status deployment/notification-service-deployment --timeout=5m
+      
+      - name: Verify deployment
+        run: |
+          echo "=== Pods Status ==="
+          kubectl get pods
+          
+          echo "=== Services Status ==="
+          kubectl get services
+          
+          echo "=== Ingress Status ==="
+          kubectl get ingress
+          
+          echo "=== Recent Events ==="
+          kubectl get events --sort-by=.metadata.creationTimestamp | tail -20
+      
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: ${{ steps.set-env.outputs.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${GITHUB_REF##*/}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${GITHUB_SHA::7}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services Deployed:" >> $GITHUB_STEP_SUMMARY
+          echo "- User Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Document Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Realtime Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Notification Service" >> $GITHUB_STEP_SUMMARY

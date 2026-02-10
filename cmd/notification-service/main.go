@@ -2,9 +2,13 @@ package main
 
 import (
 	"log"
+	"net"
 
 	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
+	"github.com/pasanAbeysekara/collaborative-editor/internal/grpchandlers"
+	pb "github.com/pasanAbeysekara/collaborative-editor/proto"
 	"github.com/rabbitmq/amqp091-go"
+	"google.golang.org/grpc"
 )
 
 func failOnError(err error, msg string) {
@@ -16,6 +20,11 @@ func failOnError(err error, msg string) {
 func main() {
 	cfg := config.Load()
 
+	// Start gRPC server
+	grpcPort := "50053"
+	go startGRPCServer(grpcPort)
+
+	// Continue with RabbitMQ consumer
 	conn, err := amqp091.Dial(cfg.RabbitMQ_URL)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -83,4 +92,20 @@ func main() {
 
 	log.Printf(" [*] Notification service is waiting for messages. To exit press CTRL+C")
 	<-forever
+}
+
+func startGRPCServer(port string) {
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("Failed to listen on port %s: %v", port, err)
+	}
+
+	grpcServer := grpc.NewServer()
+	notificationService := &grpchandlers.NotificationServiceServer{}
+	pb.RegisterNotificationServiceServer(grpcServer, notificationService)
+
+	log.Printf("Starting notification-service gRPC on port %s...\n", port)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve gRPC: %v", err)
+	}
 }

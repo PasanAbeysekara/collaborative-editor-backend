@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -10,21 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/auth"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/config"
+	"github.com/pasanAbeysekara/collaborative-editor/internal/grpchandlers"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/handlers"
 	customMiddleware "github.com/pasanAbeysekara/collaborative-editor/internal/middleware"
 	"github.com/pasanAbeysekara/collaborative-editor/internal/storage"
+	pb "github.com/pasanAbeysekara/collaborative-editor/proto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rabbitmq/amqp091-go"
+	"google.golang.org/grpc"
 )
 
 func main() {
 	cfg := config.Load()
 	conn, err := amqp091.Dial(cfg.RabbitMQ_URL)
-	if err != nil { log.Fatalf("Failed to connect to RabbitMQ: %v", err) }
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
 	defer conn.Close()
 
 	ch, err := conn.Channel()
-	if err != nil { log.Fatalf("Failed to open a channel: %v", err) }
+	if err != nil {
+		log.Fatalf("Failed to open a channel: %v", err)
+	}
 	defer ch.Close()
 	auth.Initialize(cfg)
 
@@ -35,7 +43,13 @@ func main() {
 	defer pool.Close()
 
 	var store storage.Store = storage.NewPostgresStore(pool)
-    docHandler := &handlers.DocumentHandler{Store: store, AMQPChannel: ch}
+
+	// Start gRPC server
+	grpcPort := "50052"
+	go startGRPCServer(store, ch, grpcPort)
+
+	// Keep HTTP server for backwards compatibility (REST API)
+	docHandler := &handlers.DocumentHandler{Store: store, AMQPChannel: ch}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -57,6 +71,22 @@ func main() {
 		r.Post("/documents/{documentID}/share", docHandler.ShareDocument)
 	})
 
-	log.Printf("Starting document-service on port %s...\n", cfg.Port)
+	log.Printf("Starting document-service HTTP on port %s...\n", cfg.Port)
 	http.ListenAndServe(":"+cfg.Port, r)
+}
+
+func startGRPCServer(store storage.Store, amqpCh *amqp091.Channel, port string) {
+	lis, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("Failed to listen on port %s: %v", port, err)
+	}
+
+	grpcServer := grpc.NewServer()
+	docService := &grpchandlers.DocumentServiceServer{Store: store, AMQPChannel: amqpCh}
+	pb.RegisterDocumentServiceServer(grpcServer, docService)
+
+	log.Printf("Starting document-service gRPC on port %s...\n", port)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve gRPC: %v", err)
+	}
 }

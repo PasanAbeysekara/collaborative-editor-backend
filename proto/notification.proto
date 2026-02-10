@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/pasanAbeysekara/collaborative-editor/proto";
+
+// Notification service handles sending notifications to users
+service NotificationService {
+  rpc SendNotification(NotificationRequest) returns (NotificationResponse);
+}
+
+message NotificationRequest {
+  string user_id = 1;
+  string message = 2;
+  string type = 3;
+  map<string, string> metadata = 4;
+}
+
+message NotificationResponse {
+  bool success = 1;
+  string message = 2;
+}

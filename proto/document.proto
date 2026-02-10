@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/pasanAbeysekara/collaborative-editor/proto";
+
+// Document service handles document CRUD and sharing operations
+service DocumentService {
+  rpc CreateDocument(CreateDocumentRequest) returns (Document);
+  rpc GetDocument(GetDocumentRequest) returns (Document);
+  rpc GetUserDocuments(GetUserDocumentsRequest) returns (DocumentList);
+  rpc UpdateDocument(UpdateDocumentRequest) returns (UpdateDocumentResponse);
+  rpc ShareDocument(ShareDocumentRequest) returns (ShareDocumentResponse);
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+}
+
+message CreateDocumentRequest {
+  string title = 1;
+  string user_id = 2;
+  string content = 3;
+}
+
+message GetDocumentRequest {
+  string document_id = 1;
+}
+
+message GetUserDocumentsRequest {
+  string user_id = 1;
+}
+
+message Document {
+  string id = 1;
+  string title = 2;
+  string owner_id = 3;
+  string content = 4;
+  int32 version = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message DocumentList {
+  repeated Document documents = 1;
+}
+
+message UpdateDocumentRequest {
+  string document_id = 1;
+  string content = 2;
+  int32 version = 3;
+}
+
+message UpdateDocumentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ShareDocumentRequest {
+  string document_id = 1;
+  string owner_id = 2;
+  string target_user_email = 3;
+  string role = 4;
+}
+
+message ShareDocumentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CheckPermissionRequest {
+  string document_id = 1;
+  string user_id = 2;
+}
+
+message CheckPermissionResponse {
+  bool has_permission = 1;
+}

@@ -28,6 +28,9 @@ spec:
       - name: notification-service
         image: notification-service:v1
         imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 50053
+          name: grpc
         readinessProbe:
           exec:
             command:
